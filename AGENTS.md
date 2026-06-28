@@ -1,11 +1,11 @@
 # AGENTS.md
 
-**LiveCalendar** — A comprehensive, server-rendered calendar and scheduling component library for Phoenix LiveView. Supports day, week, month, year, N-day, agenda, timeline, and resource views. Optional JS hooks for drag interactions, optional PubSub for real-time sync, optional Ecto for persistence. Zero JavaScript required for the base layer.
+**PhoenixLiveSchedule** — A comprehensive, server-rendered calendar and scheduling component library for Phoenix LiveView. Supports day, week, month, year, N-day, agenda, timeline, and resource views. Optional JS hooks for drag interactions, optional PubSub for real-time sync, optional Ecto for persistence. Zero JavaScript required for the base layer.
 
 
 ## Overview
 
-LiveCalendar is a standalone Hex package with no framework dependencies beyond Phoenix LiveView. It is designed to work with any Phoenix app, and optionally integrates with PhoenixKit via a separate bridge package.
+PhoenixLiveSchedule is a standalone Hex package with no framework dependencies beyond Phoenix LiveView. It is designed to work with any Phoenix app, and optionally integrates with PhoenixKit via a separate bridge package.
 
 ### Architecture: Layered
 
@@ -22,7 +22,7 @@ Each layer depends on the one below. Layer 0 works standalone.
 ### Package boundary
 
 ```
-live_calendar (Hex, standalone)        <- anyone can use
+phoenix_live_schedule (Hex, standalone)        <- anyone can use
     ^
 phoenix_kit_calendar (bridge)          <- optional, PhoenixKit users only
     ^
@@ -36,23 +36,23 @@ Consumer workflow:
 
 ```bash
 # 1. Add to mix.exs
-{:live_calendar, "~> 0.1.0"}
+{:phoenix_live_schedule, "~> 0.1.0"}
 
 # 2. Install
 mix deps.get
-mix live_calendar.install
+mix phoenix_live_schedule.install
 ```
 
-`mix live_calendar.install` automatically:
+`mix phoenix_live_schedule.install` automatically:
 - Finds `app.css` (checks `assets/css/app.css`, `priv/static/assets/app.css`, `assets/app.css`)
-- Adds `@source "../../deps/live_calendar";` after the last existing `@source` line
+- Adds `@source "../../deps/phoenix_live_schedule";` after the last existing `@source` line
 - Idempotent — safe to run multiple times
 - Prints JS hook setup instructions
 - Accepts `--css-path` override
 
 **TODO:** The install task currently only handles CSS and prints JS as optional instructions. The JS hooks are now needed for the MarkerTicker and PopoverPause features (not just drag interactions). The install task should also:
 - Find `app.js` and add the JS import line
-- Add `...window.LiveCalendarHooks` to the LiveSocket hooks config
+- Add `...window.PhoenixLiveScheduleHooks` to the LiveSocket hooks config
 - Or at minimum, make the printed instructions clearer that JS is recommended for full functionality
 
 ### JS Hook Setup (required for full functionality)
@@ -60,10 +60,10 @@ mix live_calendar.install
 Add to `assets/js/app.js`:
 
 ```javascript
-import "../../deps/live_calendar/priv/static/assets/live_calendar.js"
+import "../../deps/phoenix_live_schedule/priv/static/assets/phoenix_live_schedule.js"
 
 let liveSocket = new LiveSocket("/live", Socket, {
-  hooks: { ...window.LiveCalendarHooks, ...Hooks }
+  hooks: { ...window.PhoenixLiveScheduleHooks, ...Hooks }
 })
 ```
 
@@ -75,16 +75,16 @@ Without this, the following features will not work:
 
 ### Compile-time install check
 
-If the consumer hasn't run `mix live_calendar.install`, a compile-time warning is emitted:
+If the consumer hasn't run `mix phoenix_live_schedule.install`, a compile-time warning is emitted:
 
 ```
-warning: LiveCalendar CSS integration not detected.
-Run: mix live_calendar.install
+warning: PhoenixLiveSchedule CSS integration not detected.
+Run: mix phoenix_live_schedule.install
 ```
 
-Suppress with: `config :live_calendar, skip_install_check: true`
+Suppress with: `config :phoenix_live_schedule, skip_install_check: true`
 
-**This is critical** — without the `@source` directive, Tailwind purges all LiveCalendar CSS classes and components render without any styling (no rounded corners, no colors, no layout).
+**This is critical** — without the `@source` directive, Tailwind purges all PhoenixLiveSchedule CSS classes and components render without any styling (no rounded corners, no colors, no layout).
 
 
 ## Development Workflow
@@ -121,17 +121,17 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 ## Project Structure
 
 ```
-live_calendar/
+phoenix_live_schedule/
   config/
     config.exs                          # skip_install_check: true for self-compilation
 
   lib/
-    live_calendar.ex                    # Main module — public API, installed?/0 check
+    phoenix_live_schedule.ex                    # Main module — public API, installed?/0 check
     mix/
       tasks/
-        live_calendar.install.ex        # Mix task — adds @source to consumer's app.css
+        phoenix_live_schedule.install.ex        # Mix task — adds @source to consumer's app.css
 
-    live_calendar/
+    phoenix_live_schedule/
       # --- Core Data Structures ---
       event.ex                          # Event struct — @enforce_keys [:id, :start]
                                         #   Fields: title, description, location, url, start, end, color, text_color, class,
@@ -422,19 +422,19 @@ live_calendar/
         telemetry.ex                    # Performance measurement — emits :telemetry events and logs warnings
                                         #   when hot paths exceed configurable thresholds.
                                         #   - measure/3: wraps an operation in :telemetry.span, emits
-                                        #     [:live_calendar, :measure, :start/:stop/:exception]
+                                        #     [:phoenix_live_schedule, :measure, :start/:stop/:exception]
                                         #   - measure_and_warn/3: measures + Logger.warning if threshold exceeded
                                         #   - profile_ingress/2: runs once per data update in CalendarComponent.update.
                                         #     Measures event count AND estimated memory (:erts_debug.size with
                                         #     sample-based extrapolation). Catches both "too many items" and
-                                        #     "few but huge items" cases. Emits [:live_calendar, :ingress].
+                                        #     "few but huge items" cases. Emits [:phoenix_live_schedule, :ingress].
                                         #   - should_measure?/1: gate for hot paths — returns false for <=100
                                         #     events (zero overhead for most users) unless perf_always_measure.
                                         #   - Instrumented: group_events_by_date (10ms), compute_week_slots (5ms),
                                         #     OverlapLayout.compute (5ms), filter_events_by_visibility (5ms)
                                         #
                                         #   Config:
-                                        #     config :live_calendar,
+                                        #     config :phoenix_live_schedule,
                                         #       perf_warnings: true,            # false to silence
                                         #       perf_always_measure: false,     # true to measure small datasets
                                         #       perf_thresholds: %{group_events: 20}  # override defaults (ms)
@@ -443,7 +443,7 @@ live_calendar/
       store/
         event_store.ex                  # Behaviour — list_events/1, get_event/2, create_event/2, update_event/3, delete_event/2
         ecto/
-          event_schema.ex               # Ecto schema — live_calendar_events, changeset, to_event/1
+          event_schema.ex               # Ecto schema — phoenix_live_schedule_events, changeset, to_event/1
           event_store_ecto.ex           # Default Ecto implementation — range/resource/calendar filtering
           migrations.ex                 # Versioned migrations (Oban pattern) — V1 with indexes
           repo_helper.ex                # Runtime repo resolution via Application.get_env
@@ -454,12 +454,12 @@ live_calendar/
   priv/
     static/
       assets/
-        live_calendar.js                # 8 JS hooks (see JS Hooks section)
-        live_calendar.css               # Optional CSS: urgency animations, drag states, prefers-reduced-motion
+        phoenix_live_schedule.js                # 8 JS hooks (see JS Hooks section)
+        phoenix_live_schedule.css               # Optional CSS: urgency animations, drag states, prefers-reduced-motion
 
   test/                                 # 24 test files, 264 tests
-    live_calendar_test.exs
-    live_calendar/
+    phoenix_live_schedule_test.exs
+    phoenix_live_schedule/
       event_test.exs
       resource_test.exs
       availability_test.exs
@@ -568,7 +568,7 @@ Timed events use the `OverlapLayout` algorithm for side-by-side column positioni
 - **NOT framework-agnostic.** A theming/preset system was evaluated and rejected as over-engineering for the audience.
 - **Non-Tailwind users can still use it** via the `class` override attribute on every component element.
 - **TODO (docs phase):** Document all `cal-*` CSS classes used, which daisyUI/Tailwind classes they map to.
-- **`@source` directive required** in consumer's app.css — added by `mix live_calendar.install`
+- **`@source` directive required** in consumer's app.css — added by `mix phoenix_live_schedule.install`
 - CSS dimension values (slot_height, slot_width, resource_width) sanitized via `Safe.sanitize_css_dimension/2`
 
 ### EventItem Compact Mode
@@ -706,8 +706,8 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 
 ## JS Hooks
 
-File: `priv/static/assets/live_calendar.js`
-Packaged as `window.LiveCalendarHooks`
+File: `priv/static/assets/phoenix_live_schedule.js`
+Packaged as `window.PhoenixLiveScheduleHooks`
 
 | Hook | Purpose |
 |------|---------|
@@ -718,7 +718,7 @@ Packaged as `window.LiveCalendarHooks`
 | `EventResize` | Drag edge to resize duration |
 | `ResponsiveContainer` | ResizeObserver, 150ms debounce |
 | `TouchHandler` | Long-press for mobile (500ms) |
-| `LiveCalendarContainer` | Composite — initializes TimeRangeSelect, EventDrag, EventResize, ResponsiveContainer, TouchHandler |
+| `PhoenixLiveScheduleContainer` | Composite — initializes TimeRangeSelect, EventDrag, EventResize, ResponsiveContainer, TouchHandler |
 
 
 ## PhoenixKit Demo Page
@@ -736,7 +736,7 @@ Demo sections: Full Calendar, Status & Priority, Resource Views, Mini Widgets, B
 
 Demo uses: `min_visibility={:auto}`, events with visibility 10–40, real April 2026 day markers (Good Friday, Easter Monday, team offsite, payday, reduced hours, maintenance, spring season), month-spanning multi-day event.
 
-App JS setup: `app/assets/js/app.js` imports `live_calendar.js` at `../../../live_calendar/priv/static/assets/live_calendar.js` (path dependency through phoenix_kit).
+App JS setup: `app/assets/js/app.js` imports `phoenix_live_schedule.js` at `../../../phoenix_live_schedule/priv/static/assets/phoenix_live_schedule.js` (path dependency through phoenix_kit).
 
 
 ## Known Remaining Work
@@ -759,7 +759,7 @@ App JS setup: `app/assets/js/app.js` imports `live_calendar.js` at `../../../liv
 
 7. **Ecto integration tests** — 0% test coverage on the Ecto layer (`EventSchema`, `EventStoreEcto`, `Migrations`, `RepoHelper`). Needs a test database with Ecto sandbox.
 
-8. **`prefers-reduced-motion`** — CSS is in the optional `live_calendar.css` file but not in any auto-included styles. Consumer must manually import it. Should document this more prominently or include it inline.
+8. **`prefers-reduced-motion`** — CSS is in the optional `phoenix_live_schedule.css` file but not in any auto-included styles. Consumer must manually import it. Should document this more prominently or include it inline.
 
 ### Nice to have
 
@@ -768,13 +768,13 @@ App JS setup: `app/assets/js/app.js` imports `live_calendar.js` at `../../../liv
 **[Phase 2] Waterfall virtualized / windowed rendering** — Current Waterfall renders every in-range event's row + bar up-front. Fine for hundreds of events; breaks down past thousands. The goal is to scale to millions with bounded DOM and bounded per-render work. Aspirational — Phase 1 (built-in toolbar, auto-scroll-to-today, edge indicators, out-of-range filtering) already ships the UX affordances that make it unnecessary for typical projects. Design notes:
 
 - **Not infinite scroll** — time is bidirectional (scroll both ways from wherever you are) and events span ranges (one that starts off-screen-left but ends on-screen must still render partially). It's a 2D windowing problem, not append-only pagination.
-- **Data source** — reuse the existing `LiveCalendar.Store.EventStore` behaviour: consumers implement `list_events/1` filtered by date range + resource, and pass that as a callback instead of the full `events` list. The component calls it with the current viewport range.
+- **Data source** — reuse the existing `PhoenixLiveSchedule.Store.EventStore` behaviour: consumers implement `list_events/1` filtered by date range + resource, and pass that as a callback instead of the full `events` list. The component calls it with the current viewport range.
 - **Scroll reporting** — new JS hook (`WaterfallViewportReporter`) throttled to ~100ms, pushes `{scroll_left, client_width}` to the LiveComponent, which maps to a date range and re-queries `list_events/1`.
 - **Vertical virtualization** — orthogonal. Row-level: only render rows intersecting the vertical viewport. Harder than horizontal because row height is fixed (simpler math) but connector arrows cross unrendered rows. Probably use `LiveView.stream` for rows with `phx-viewport-top` / `phx-viewport-bottom` anchors.
 - **Connector edge markers** — arrows that connect an on-screen event to an off-screen one render as short stems ending in an edge marker ("→ 3 deps out of view"). Click to navigate / extend range. Requires extending `compute_connector_paths` to handle one-sided paths.
 - **Topo sort caveat** — current `auto_place_group` needs the full connector graph to minimize crossings. For millions of events this argues for loading event IDs + connectors cheaply up-front (just strings, no event structs) and lazy-loading the full `Event` data only for visible rows. Separate "layout pass" from "render pass."
 - **Obstacle map** — `compute_bar_obstacles` is O(connectors × bars). At million-event scale this becomes the bottleneck even for connectors that don't need collision avoidance. Needs a spatial index (interval tree on row × date range) to query only bars in the arrow's y-span.
-- **Wrap not rewrite** — the function component stays; wrap it in a LiveComponent `LiveCalendar.Views.WaterfallLive` that owns the viewport state and calls the function component with a windowed events list. Consumers pick the wrapper or the raw function component based on scale.
+- **Wrap not rewrite** — the function component stays; wrap it in a LiveComponent `PhoenixLiveSchedule.Views.WaterfallLive` that owns the viewport state and calls the function component with a windowed events list. Consumers pick the wrapper or the raw function component based on scale.
 
 9. **Event overlap layout in resource/timeline views** — `OverlapLayout` is used in week/day/N-day views but not in resource_view or timeline. Events in the same resource at the same time would stack rather than render side-by-side.
 
@@ -813,9 +813,9 @@ App JS setup: `app/assets/js/app.js` imports `live_calendar.js` at `../../../liv
 
 12. **Tailwind class purging** — Dynamic class concatenation in HEEx templates gets purged by Tailwind. All conditional Tailwind classes must be returned as complete static strings from helper functions (see `multiday_rounding_class` pattern in `month_grid.ex`). This applies to any new conditional classes added in the future.
 
-13. **`@source` in parent app** — The `@source "../../deps/live_calendar"` directive in `/www/app/assets/css/app.css` was manually added during development. If the app's CSS is regenerated or the install is re-run, this line exists. The `mix live_calendar.install` task handles new installs, but existing manual entries should be preserved.
+13. **`@source` in parent app** — The `@source "../../deps/phoenix_live_schedule"` directive in `/www/app/assets/css/app.css` was manually added during development. If the app's CSS is regenerated or the install is re-run, this line exists. The `mix phoenix_live_schedule.install` task handles new installs, but existing manual entries should be preserved.
 
-14. **Compile-time install check** — The warning in `calendar_component.ex` uses `IO.warn` at compile time, which fires during `mix compile` of ANY project that depends on live_calendar. The package itself suppresses it via `config :live_calendar, skip_install_check: true` in `config/config.exs`. Consumer projects that haven't run `mix live_calendar.install` will see the warning on every compile until they install or suppress.
+14. **Compile-time install check** — The warning in `calendar_component.ex` uses `IO.warn` at compile time, which fires during `mix compile` of ANY project that depends on phoenix_live_schedule. The package itself suppresses it via `config :phoenix_live_schedule, skip_install_check: true` in `config/config.exs`. Consumer projects that haven't run `mix phoenix_live_schedule.install` will see the warning on every compile until they install or suppress.
 
 15. **Dark mode theme contrast** — The `phoenix-dark` daisyUI theme has only 3.65% lightness spread between base-100/200/300. Using `border-base-200` or `border-base-300` is nearly invisible. Always use `border-base-content/N` for borders.
 
@@ -836,6 +836,6 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`.
 
 ## Naming
 
-The current name `live_calendar` may be too narrow given the planned scope (timelines, resource scheduling, etc.). Consider renaming to something more generic in the future:
+The current name `phoenix_live_schedule` may be too narrow given the planned scope (timelines, resource scheduling, etc.). Consider renaming to something more generic in the future:
 
 - **`live_timekit`** — preferred alternative. Clearly a toolkit for time-based UIs, covers calendars, timelines, scheduling, and booking without being too abstract.

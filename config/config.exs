@@ -1,4 +1,4 @@
 import Config
 
 # Suppress install check when compiling the library itself
-config :live_calendar, skip_install_check: true
+config :phoenix_live_schedule, skip_install_check: true

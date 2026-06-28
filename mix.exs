@@ -1,13 +1,13 @@
-defmodule LiveCalendar.MixProject do
+defmodule PhoenixLiveSchedule.MixProject do
   use Mix.Project
 
   @version "0.1.0"
   @description "A comprehensive calendar and scheduling component library for Phoenix LiveView"
-  @source_url "https://github.com/BeamLabEU/live_calendar"
+  @source_url "https://github.com/mdon/phoenix_live_schedule"
 
   def project do
     [
-      app: :live_calendar,
+      app: :phoenix_live_schedule,
       version: @version,
       description: @description,
       elixir: "~> 1.15",
@@ -17,7 +17,7 @@ defmodule LiveCalendar.MixProject do
       package: package(),
       docs: docs(),
       aliases: aliases(),
-      name: "LiveCalendar",
+      name: "PhoenixLiveSchedule",
       source_url: @source_url
     ]
   end
@@ -54,8 +54,8 @@ defmodule LiveCalendar.MixProject do
 
   defp package do
     [
-      name: "live_calendar",
-      maintainers: ["BeamLab EU"],
+      name: "phoenix_live_schedule",
+      maintainers: ["mdon"],
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
       files: ~w(lib priv mix.exs README.md LICENSE CHANGELOG.md .formatter.exs)
@@ -64,10 +64,10 @@ defmodule LiveCalendar.MixProject do
 
   defp docs do
     [
-      name: "LiveCalendar",
+      name: "PhoenixLiveSchedule",
       source_ref: "v#{@version}",
       source_url: @source_url,
-      main: "LiveCalendar",
+      main: "PhoenixLiveSchedule",
       extras: ["README.md", "CHANGELOG.md"]
     ]
   end
