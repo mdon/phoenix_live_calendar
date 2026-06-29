@@ -40,6 +40,14 @@ defmodule PhoenixLiveSchedule do
   | Timeline | `PhoenixLiveSchedule.Views.Timeline` | Horizontal time, resource rows |
   | Resource | `PhoenixLiveSchedule.Views.ResourceView` | Resource columns |
 
+  > #### View maturity {: .info}
+  >
+  > All eight views render server-side and are usable today. **Month** is the most
+  > polished — it is the primary view and the one tuned for small screens. The
+  > remaining views (week, day, N-day, year, agenda, timeline, resource) are
+  > functional but less refined; in particular the time-grid views are not yet
+  > optimised for phone widths. Expect them to gain polish in later releases.
+
   ## Data structures
 
   - `PhoenixLiveSchedule.Event` — Calendar events

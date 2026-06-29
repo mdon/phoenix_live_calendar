@@ -13,3 +13,4 @@
 - RTL support
 - i18n via default English labels + an override translations map (supply your app's Gettext strings directly)
 - Tailwind CSS / daisyUI compatible styling
+- Responsive month view tuned for small screens (single-letter day headers, equal-width columns that never overflow). The other views are functional but less polished — the time-grid views are not yet optimised for phone widths
