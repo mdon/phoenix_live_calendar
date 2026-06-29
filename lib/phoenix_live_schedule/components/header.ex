@@ -65,7 +65,7 @@ defmodule PhoenixLiveSchedule.Components.Header do
     ~H"""
     <div
       class={[
-        "cal-header grid grid-cols-[1fr_auto_1fr] items-center px-3 py-2",
+        "cal-header grid grid-cols-[1fr_auto_1fr] items-center max-sm:gap-1 px-2 py-1.5 sm:px-3 sm:py-2",
         @class
       ]}
       role="toolbar"
@@ -129,7 +129,7 @@ defmodule PhoenixLiveSchedule.Components.Header do
         </button>
 
         <h2
-          class="cal-title text-base font-semibold min-w-32 text-center select-none"
+          class="cal-title text-sm sm:text-base font-semibold min-w-0 sm:min-w-32 max-w-[55vw] sm:max-w-none truncate text-center select-none"
           aria-live="polite"
         >
           {@title}

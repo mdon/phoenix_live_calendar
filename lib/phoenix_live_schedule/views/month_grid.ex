@@ -114,13 +114,21 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
         compute_all_week_slots(weeks, multi_day_events)
       end
 
+    # Pair each short name with its single-letter narrow form (phones) and full
+    # name (screen-reader label) so the header adapts without losing meaning:
+    # "M T W…" on phones, "Mon Tue…" on wider screens, "Monday…" announced.
+    short_names = I18n.ordered_day_names_short(assigns.week_start, assigns.translations)
+    narrow_names = I18n.ordered_day_names_narrow(assigns.week_start, assigns.translations)
+    full_names = I18n.ordered_day_names(assigns.week_start, assigns.translations)
+
     day_names =
-      if assigns.show_weekends do
-        I18n.ordered_day_names_short(assigns.week_start, assigns.translations)
-      else
-        I18n.ordered_day_names_short(assigns.week_start, assigns.translations)
-        |> filter_weekday_names(assigns.week_start)
-      end
+      [short_names, narrow_names, full_names]
+      |> Enum.zip()
+      |> then(fn names ->
+        if assigns.show_weekends,
+          do: names,
+          else: filter_weekday_names(names, assigns.week_start)
+      end)
 
     assigns =
       assigns
@@ -142,11 +150,13 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
           W
         </div>
         <div
-          :for={name <- @day_names}
-          class="cal-day-header text-sm font-semibold text-base-content uppercase tracking-wider py-2 text-center"
+          :for={{name, narrow, full} <- @day_names}
+          class="cal-day-header text-xs sm:text-sm font-semibold text-base-content uppercase tracking-tight sm:tracking-wider py-1.5 sm:py-2 text-center"
           role="columnheader"
+          aria-label={full}
         >
-          {name}
+          <span class="sm:hidden">{narrow}</span>
+          <span class="hidden sm:inline">{name}</span>
         </div>
       </div>
 
@@ -195,7 +205,7 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
             <%!-- Day number row: number + marker labels --%>
             <div class="flex items-center gap-1 px-0.5 pt-0.5 min-h-5 overflow-hidden">
               <span class={[
-                "cal-day-number text-sm w-5 h-5 inline-flex items-center justify-center flex-shrink-0",
+                "cal-day-number text-xs sm:text-sm w-5 h-5 inline-flex items-center justify-center flex-shrink-0",
                 day_number_class(day, @date, @today)
               ]}>
                 {day.day}

@@ -157,14 +157,27 @@ defmodule PhoenixLiveSchedule.Views.MonthGridTest do
       assert html =~ "Me"
     end
 
+    test "day headers carry a single-letter (mobile) and a short (desktop) variant" do
+      assigns = %{date: ~D[2026-04-01]}
+
+      html = render(~H"<.month_grid date={@date} week_start={1} />")
+
+      # Narrow letters show only on phones; short names only from `sm` up.
+      assert html =~ ~s(class="sm:hidden")
+      assert html =~ ~s(class="hidden sm:inline")
+      assert html =~ "Mon"
+      # Screen readers still get the full day name regardless of breakpoint.
+      assert html =~ ~s(aria-label="Monday")
+    end
+
     test "renders with Sunday week start" do
       assigns = %{date: ~D[2026-04-01]}
 
       html = render(~H"<.month_grid date={@date} week_start={7} />")
 
-      # First column header should be Sun
-      [first_header | _] = Regex.scan(~r/cal-day-header[^>]*>([^<]+)/, html)
-      assert hd(first_header) =~ "Sun"
+      # First column header should be Sunday — it renders before Monday.
+      assert html =~ "Sun"
+      assert :binary.match(html, "Sun") |> elem(0) < :binary.match(html, "Mon") |> elem(0)
     end
   end
 
