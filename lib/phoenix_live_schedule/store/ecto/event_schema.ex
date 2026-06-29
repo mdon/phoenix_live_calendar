@@ -23,6 +23,9 @@ if Code.ensure_loaded?(Ecto) do
     @primary_key {:id, :binary_id, autogenerate: true}
     @foreign_key_type :binary_id
 
+    @typedoc "Persisted calendar-event row (the runtime struct is `PhoenixLiveSchedule.Event`)."
+    @type t :: %__MODULE__{}
+
     schema "phoenix_live_schedule_events" do
       field(:title, :string)
       field(:description, :string)
@@ -37,9 +40,11 @@ if Code.ensure_loaded?(Ecto) do
 
       field(:color, :string)
       field(:text_color, :string)
+      field(:class, :string)
 
       field(:group_id, :string)
       field(:resource_id, :string)
+      field(:resource_ids, {:array, :string})
       field(:category, :string)
 
       field(:editable, :boolean, default: true)
@@ -48,6 +53,13 @@ if Code.ensure_loaded?(Ecto) do
 
       field(:status, :string, default: "confirmed")
       field(:transparency, :string, default: "opaque")
+      field(:priority, :string, default: "normal")
+      field(:urgency, :string, default: "none")
+      field(:visibility, :integer, default: 20)
+
+      field(:icon, :string)
+      field(:badge, :string)
+      field(:border_color, :string)
 
       field(:rrule, :string)
       field(:recurrence_id, :binary_id)
@@ -70,14 +82,22 @@ if Code.ensure_loaded?(Ecto) do
       :end_date,
       :color,
       :text_color,
+      :class,
       :group_id,
       :resource_id,
+      :resource_ids,
       :category,
       :editable,
       :overlap,
       :display,
       :status,
       :transparency,
+      :priority,
+      :urgency,
+      :visibility,
+      :icon,
+      :badge,
+      :border_color,
       :rrule,
       :recurrence_id,
       :calendar_id,
@@ -89,9 +109,17 @@ if Code.ensure_loaded?(Ecto) do
       event
       |> cast(attrs, @required_fields ++ @optional_fields)
       |> validate_required(@required_fields)
-      |> validate_inclusion(:status, ["confirmed", "tentative", "cancelled"])
+      |> validate_inclusion(:status, [
+        "confirmed",
+        "tentative",
+        "cancelled",
+        "pending_approval",
+        "no_show"
+      ])
       |> validate_inclusion(:transparency, ["opaque", "transparent"])
       |> validate_inclusion(:display, ["auto", "background", "inverse_background", "none"])
+      |> validate_inclusion(:priority, ["low", "normal", "high", "urgent"])
+      |> validate_inclusion(:urgency, ["none", "attention", "warning", "critical"])
       |> validate_time_order()
     end
 
@@ -116,14 +144,22 @@ if Code.ensure_loaded?(Ecto) do
         all_day: schema.all_day || false,
         color: schema.color,
         text_color: schema.text_color,
+        class: schema.class,
         display: parse_display(schema.display),
         group_id: schema.group_id,
         resource_id: schema.resource_id,
+        resource_ids: schema.resource_ids,
         category: schema.category,
         editable: schema.editable,
         overlap: schema.overlap,
         status: parse_status(schema.status),
         transparency: parse_transparency(schema.transparency),
+        priority: parse_priority(schema.priority),
+        urgency: parse_urgency(schema.urgency),
+        visibility: schema.visibility || 20,
+        icon: schema.icon,
+        badge: schema.badge,
+        border_color: schema.border_color,
         rrule: schema.rrule,
         recurrence_id: schema.recurrence_id,
         extra: schema.extra || %{}
@@ -150,10 +186,24 @@ if Code.ensure_loaded?(Ecto) do
     defp parse_status("confirmed"), do: :confirmed
     defp parse_status("tentative"), do: :tentative
     defp parse_status("cancelled"), do: :cancelled
+    defp parse_status("pending_approval"), do: :pending_approval
+    defp parse_status("no_show"), do: :no_show
     defp parse_status(_), do: :confirmed
 
     defp parse_transparency("opaque"), do: :opaque
     defp parse_transparency("transparent"), do: :transparent
     defp parse_transparency(_), do: :opaque
+
+    defp parse_priority("low"), do: :low
+    defp parse_priority("normal"), do: :normal
+    defp parse_priority("high"), do: :high
+    defp parse_priority("urgent"), do: :urgent
+    defp parse_priority(_), do: :normal
+
+    defp parse_urgency("none"), do: :none
+    defp parse_urgency("attention"), do: :attention
+    defp parse_urgency("warning"), do: :warning
+    defp parse_urgency("critical"), do: :critical
+    defp parse_urgency(_), do: :none
   end
 end

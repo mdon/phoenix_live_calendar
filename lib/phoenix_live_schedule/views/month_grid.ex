@@ -16,6 +16,26 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
   alias PhoenixLiveSchedule.Event
   alias PhoenixLiveSchedule.Utils.{DateHelpers, I18n, Safe, Telemetry}
 
+  @doc """
+  Renders a month grid — six rows of seven days.
+
+  Multi-day events render as full-width bars that keep a consistent slot row
+  across every day they span; day markers tint the matching cells.
+
+  ## Attributes
+
+  - `date` — any date within the month to render
+  - `events` — list of `PhoenixLiveSchedule.Event` structs
+  - `day_markers` — list of `PhoenixLiveSchedule.DayMarker` structs
+  - `selected_date` / `today` — dates to highlight
+  - `week_start` — `1` (Monday, default) … `7` (Sunday)
+  - `max_events` — single-day events shown per cell before a "+N more" link (default `3`)
+  - `max_multiday` — cap on multi-day bar rows per cell (default: no cap)
+  - `expand_cells` — grow cells to fit all bars instead of clipping
+  - `show_week_numbers` / `show_weekends` / `fixed_weeks` — layout toggles
+  - `on_date_click` / `on_event_click` / `on_more_click` — JS commands or event names
+  - `translations` / `time_format` / `dir` / `class` — presentation
+  """
   attr :date, Date, required: true
   attr :events, :list, default: []
   attr :day_markers, :list, default: []

@@ -520,43 +520,77 @@
   };
 
   // ============================================================
-  // SyncAnimations — keep CSS animations on descendant elements in phase
+  // SyncAnimations — keep the overdue overlay consistent across cells
   // ============================================================
-  // CSS animations begin when their element is first rendered, so elements
-  // inserted at different times (e.g. when LiveView patches in new cells while
-  // paging a calendar) drift out of phase. This hook re-anchors every animation
-  // in its subtree to the same start time (0 = the document timeline origin) on
-  // mount and whenever the subtree changes (a MutationObserver catches child
-  // LiveComponent re-renders too). Per-element `animation-delay` is preserved, so
-  // a staggered "wave" stays staggered *and* synced; a zero-delay "flash" pulses
-  // as one. Progressive enhancement — without it the CSS still animates, it can
-  // just drift after a re-render.
+  // Two jobs, both so a striped/animated overlay reads as one continuous thing
+  // across separately-rendered day-cells:
+  //
+  //  1. Phase: CSS animations begin when their element is first rendered, so
+  //     cells patched in at different times (e.g. paging a calendar) drift out
+  //     of phase. We re-anchor every animation in the subtree to the same start
+  //     time (0 = the document timeline origin); per-element `animation-delay` is
+  //     preserved, so a staggered wave stays staggered AND synced.
+  //
+  //  2. Alignment: a per-cell background gradient normally restarts at each
+  //     cell's own box, so diagonal stripes don't line up cell-to-cell. We set
+  //     `--pk-bg-x/y` on each `.pk-overdue` to its offset from this container's
+  //     origin, so every cell shows its slice of ONE shared pattern. The offset
+  //     is relative (not viewport-fixed), so it stays correct on scroll.
+  //
+  // Recomputed on mount, on subtree changes (MutationObserver — paging) and on
+  // size changes (ResizeObserver — window resize + becoming visible after a tab
+  // switch). Progressive enhancement: without it the CSS still renders, the
+  // stripes just don't line up / animations can drift after a re-render.
   window.PhoenixLiveScheduleHooks.SyncAnimations = {
     mounted() {
-      this._sync();
+      this._apply();
+
       if (typeof MutationObserver !== "undefined") {
-        this._observer = new MutationObserver(() => this._sync());
+        this._observer = new MutationObserver(() => this._apply());
         this._observer.observe(this.el, { childList: true, subtree: true });
+      }
+
+      if (typeof ResizeObserver !== "undefined") {
+        this._resize = new ResizeObserver(() => this._apply());
+        this._resize.observe(this.el);
       }
     },
 
-    _sync() {
-      if (this._scheduled || !this.el.getAnimations) return;
+    _apply() {
+      if (this._scheduled) return;
       this._scheduled = true;
       requestAnimationFrame(() => {
         this._scheduled = false;
-        this.el.getAnimations({ subtree: true }).forEach((a) => {
-          try {
-            a.startTime = 0;
-          } catch (e) {
-            /* animation not yet ready / no settable startTime — ignore */
-          }
-        });
+        this._alignStripes();
+        this._syncAnimations();
+      });
+    },
+
+    // Anchor each overdue cell's gradient to this container's origin so the
+    // diagonals line up across cells/rows.
+    _alignStripes() {
+      const root = this.el.getBoundingClientRect();
+      this.el.querySelectorAll(".pk-overdue").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        el.style.setProperty("--pk-bg-x", Math.round(root.left - r.left) + "px");
+        el.style.setProperty("--pk-bg-y", Math.round(root.top - r.top) + "px");
+      });
+    },
+
+    _syncAnimations() {
+      if (!this.el.getAnimations) return;
+      this.el.getAnimations({ subtree: true }).forEach((a) => {
+        try {
+          a.startTime = 0;
+        } catch (e) {
+          /* animation not yet ready / no settable startTime — ignore */
+        }
       });
     },
 
     destroyed() {
       if (this._observer) this._observer.disconnect();
+      if (this._resize) this._resize.disconnect();
     },
   };
 
@@ -600,13 +634,4 @@
       });
     },
   };
-
-  // Log initialization
-  var hookCount = Object.keys(window.PhoenixLiveScheduleHooks).length;
-  if (typeof console !== "undefined" && console.debug) {
-    console.debug(
-      "[PhoenixLiveSchedule] Initialized with " + hookCount + " hook(s):",
-      Object.keys(window.PhoenixLiveScheduleHooks)
-    );
-  }
 })();

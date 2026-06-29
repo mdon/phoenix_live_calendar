@@ -75,6 +75,15 @@ defmodule PhoenixLiveSchedule.Utils.I18nTest do
     test "formats year title" do
       assert I18n.format_title(:year, ~D[2026-06-15]) == "2026"
     end
+
+    test "timeline and resource use the full day label" do
+      assert I18n.format_title(:timeline, ~D[2026-04-01]) == "Wednesday, April 1, 2026"
+      assert I18n.format_title(:resource, ~D[2026-04-01]) == "Wednesday, April 1, 2026"
+    end
+
+    test "an unrecognised view falls back to a day label instead of crashing" do
+      assert I18n.format_title(:something_new, ~D[2026-04-01]) == "Wednesday, April 1, 2026"
+    end
   end
 
   describe "format_time/2" do

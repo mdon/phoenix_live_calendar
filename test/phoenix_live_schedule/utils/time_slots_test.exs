@@ -1,6 +1,7 @@
 defmodule PhoenixLiveSchedule.Utils.TimeSlotsTest do
   use ExUnit.Case, async: true
 
+  alias PhoenixLiveSchedule.{Availability, BookingConfig, Event}
   alias PhoenixLiveSchedule.Utils.TimeSlots
 
   describe "time_grid_slots/1" do
@@ -90,4 +91,130 @@ defmodule PhoenixLiveSchedule.Utils.TimeSlotsTest do
       assert TimeSlots.to_time(~T[14:30:00]) == ~T[14:30:00]
     end
   end
+
+  describe "bookable_slots/4" do
+    # 2026-04-01 is a Wednesday (ISO day 3); 2026-04-04 is a Saturday.
+    test "generates back-to-back available slots within the window, none exceeding it" do
+      slots =
+        TimeSlots.bookable_slots(~D[2026-04-01], %BookingConfig{duration: 30}, weekday_avail(), [])
+
+      # 09:00–17:00 in 30-min slots = 16
+      assert length(slots) == 16
+      assert hd(slots) == {~T[09:00:00], ~T[09:30:00], :available}
+      assert List.last(slots) == {~T[16:30:00], ~T[17:00:00], :available}
+      assert Enum.all?(slots, fn {_s, _e, status} -> status == :available end)
+    end
+
+    test "returns [] on a day with no applicable availability window" do
+      assert TimeSlots.bookable_slots(~D[2026-04-04], %BookingConfig{}, weekday_avail(), []) == []
+    end
+
+    test "returns [] when the matching window is marked unavailable" do
+      closed = [
+        %Availability{
+          days_of_week: [3],
+          start_time: ~T[09:00:00],
+          end_time: ~T[17:00:00],
+          available: false
+        }
+      ]
+
+      assert TimeSlots.bookable_slots(~D[2026-04-01], %BookingConfig{}, closed, []) == []
+    end
+
+    test "marks a slot :booked when an existing event fills it (seats: 1)" do
+      event = %Event{
+        id: "e",
+        start: slot_dt(~D[2026-04-01], ~T[09:00:00]),
+        end: slot_dt(~D[2026-04-01], ~T[09:30:00]),
+        all_day: false
+      }
+
+      slots =
+        TimeSlots.bookable_slots(~D[2026-04-01], %BookingConfig{duration: 30}, weekday_avail(), [
+          event
+        ])
+
+      assert {~T[09:00:00], ~T[09:30:00], :booked} =
+               Enum.find(slots, &(elem(&1, 0) == ~T[09:00:00]))
+
+      assert {~T[09:30:00], ~T[10:00:00], :available} =
+               Enum.find(slots, &(elem(&1, 0) == ~T[09:30:00]))
+    end
+
+    test "shared seats keep a slot available until all seats are taken" do
+      one = %Event{
+        id: "1",
+        start: slot_dt(~D[2026-04-01], ~T[09:00:00]),
+        end: slot_dt(~D[2026-04-01], ~T[09:30:00]),
+        all_day: false
+      }
+
+      slots =
+        TimeSlots.bookable_slots(
+          ~D[2026-04-01],
+          %BookingConfig{duration: 30, seats: 2},
+          weekday_avail(),
+          [one]
+        )
+
+      assert {~T[09:00:00], _, :available} = Enum.find(slots, &(elem(&1, 0) == ~T[09:00:00]))
+    end
+
+    test "min_notice makes too-soon (past) slots :unavailable" do
+      # A past date is always within now + min_notice, so every slot is too soon.
+      slots =
+        TimeSlots.bookable_slots(
+          ~D[2020-01-01],
+          %BookingConfig{duration: 30, min_notice: 120},
+          all_days_avail(),
+          []
+        )
+
+      assert slots != []
+      assert Enum.all?(slots, fn {_s, _e, status} -> status == :unavailable end)
+    end
+
+    test "max_advance makes too-far-out slots :unavailable" do
+      far = Date.add(Date.utc_today(), 60)
+
+      slots =
+        TimeSlots.bookable_slots(
+          far,
+          %BookingConfig{duration: 30, max_advance: 7},
+          all_days_avail(),
+          []
+        )
+
+      assert slots != []
+      assert Enum.all?(slots, fn {_s, _e, status} -> status == :unavailable end)
+    end
+
+    test "all-day events do not book time slots" do
+      allday = %Event{id: "ad", start: ~D[2026-04-01], end: ~D[2026-04-02], all_day: true}
+
+      slots =
+        TimeSlots.bookable_slots(~D[2026-04-01], %BookingConfig{duration: 30}, weekday_avail(), [
+          allday
+        ])
+
+      assert Enum.all?(slots, fn {_s, _e, status} -> status == :available end)
+    end
+  end
+
+  defp weekday_avail do
+    [%Availability{days_of_week: [1, 2, 3, 4, 5], start_time: ~T[09:00:00], end_time: ~T[17:00:00]}]
+  end
+
+  defp all_days_avail do
+    [
+      %Availability{
+        days_of_week: [1, 2, 3, 4, 5, 6, 7],
+        start_time: ~T[09:00:00],
+        end_time: ~T[17:00:00]
+      }
+    ]
+  end
+
+  defp slot_dt(date, time), do: DateTime.from_naive!(NaiveDateTime.new!(date, time), "Etc/UTC")
 end

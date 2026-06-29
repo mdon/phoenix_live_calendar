@@ -104,9 +104,9 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 
 ## Current Status
 
-**All layers implemented. 284 tests passing. Zero warnings. Zero credo strict issues. Dialyzer clean.**
+**All layers implemented. 405 tests passing (82% line coverage; core ~90%+). Zero warnings. Zero credo strict issues. Dialyzer clean.**
 
-- 34 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), 24 test files
+- 34 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), 33 test files
 - Layer 0 (Pure Elixir views): Complete — all 8 views
 - Layer 1 (JS hooks): Complete — 8 hooks
 - Layer 2 (PubSub): Complete
@@ -246,17 +246,22 @@ phoenix_live_schedule/
         phoenix_live_schedule.js                # 8 JS hooks (see JS Hooks section)
         phoenix_live_schedule.css               # Optional CSS: urgency animations, drag states, prefers-reduced-motion
 
-  test/                                 # 24 test files, 284 tests
+  test/                                 # 33 test files, 405 tests
+    mix/tasks/
+      phoenix_live_schedule_install_test.exs
     phoenix_live_schedule_test.exs
     phoenix_live_schedule/
+      calendar_component_test.exs
       event_test.exs
       resource_test.exs
       availability_test.exs
       booking_config_test.exs
+      day_marker_test.exs
       pubsub_test.exs
       components/
         header_test.exs
         event_item_test.exs
+        event_popover_test.exs
         mini_calendar_test.exs
         time_gutter_test.exs
       views/
@@ -271,9 +276,16 @@ phoenix_live_schedule/
       utils/
         date_helpers_test.exs
         time_slots_test.exs
+        overlap_layout_test.exs
         constraints_test.exs
         i18n_test.exs
         safe_test.exs
+        telemetry_test.exs
+      store/ecto/                         # fake-repo logic tests (no DB)
+        event_schema_test.exs
+        event_store_ecto_test.exs
+        repo_helper_test.exs
+        migrations_test.exs
 ```
 
 
@@ -593,13 +605,16 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`.
 
 ## Testing
 
-- **284 tests, 0 failures**
+- **405 tests, 0 failures** (82% line coverage; core ~90%+)
 - Unit tests for all structs, utilities, constraints
 - Component rendering tests for all views and primitives (using `rendered_to_string`)
+- CalendarComponent: mount/update sync, every `handle_event/3` clause + callback, and `render/1` per view — driven directly (no endpoint needed)
+- Ecto store layer: changeset/mapping + CRUD/delegation tested against a fake repo (no DB)
+- Install Mix task: CSS/JS integration tested against temp-dir fixtures
 - Defensive error handling tests (Safe module)
 - PubSub topic generation tests
 - Visibility tier tests (Event.visible_at?/2)
-- **Not tested:** CalendarComponent LiveComponent (needs endpoint), Ecto layer (needs DB)
+- **Not covered (documented residual):** the Ecto migration DDL (`Migrations` up/down — needs a real Postgres migrator), kept out of the default suite so the optional dep never forces a database on contributors
 
 ## Naming
 

@@ -210,6 +210,7 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
           max_multiday={assigns[:max_multiday]}
           show_week_numbers={assigns[:show_week_numbers] || false}
           show_weekends={assigns[:show_weekends] != false}
+          fixed_weeks={assigns[:fixed_weeks] != false}
           expand_cells={assigns[:expand_cells] || false}
           show_now_indicator={assigns[:show_now_indicator] != false}
           show_all_day_row={assigns[:show_all_day_row] != false}
@@ -244,6 +245,7 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
   attr :max_events, :integer, required: true
   attr :max_multiday, :integer, default: nil
   attr :expand_cells, :boolean, default: false
+  attr :fixed_weeks, :boolean, default: true
   attr :show_week_numbers, :boolean, required: true
   attr :show_weekends, :boolean, required: true
   attr :show_now_indicator, :boolean, required: true
@@ -270,6 +272,7 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
       max_events={@max_events}
       show_week_numbers={@show_week_numbers}
       show_weekends={@show_weekends}
+      fixed_weeks={@fixed_weeks}
       max_multiday={assigns[:max_multiday]}
       expand_cells={assigns[:expand_cells] || false}
       marker_ticker={assigns[:marker_ticker] != false}

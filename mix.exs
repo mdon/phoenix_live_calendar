@@ -18,6 +18,11 @@ defmodule PhoenixLiveSchedule.MixProject do
       docs: docs(),
       aliases: aliases(),
       dialyzer: [plt_add_apps: [:mix]],
+      # Core (views, components, utils, data structs, store logic, install task) is
+      # ~90%+; the residual below this floor is the optional Ecto migration DDL,
+      # which is only exercisable against a real Postgres repo (kept out of the
+      # default suite so the optional dep never forces a database on contributors).
+      test_coverage: [summary: [threshold: 80]],
       name: "PhoenixLiveSchedule",
       source_url: @source_url
     ]
@@ -41,9 +46,6 @@ defmodule PhoenixLiveSchedule.MixProject do
       # Optional: Ecto for persistence layer
       {:ecto_sql, "~> 3.10", optional: true},
       {:postgrex, "~> 0.17", optional: true},
-
-      # Optional: JSON encoding
-      {:jason, "~> 1.4"},
 
       # Development and testing
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
@@ -69,7 +71,51 @@ defmodule PhoenixLiveSchedule.MixProject do
       source_ref: "v#{@version}",
       source_url: @source_url,
       main: "PhoenixLiveSchedule",
-      extras: ["README.md", "CHANGELOG.md", "LICENSE"]
+      extras: ["README.md", "CHANGELOG.md", "LICENSE"],
+      groups_for_modules: [
+        Views: [
+          PhoenixLiveSchedule.Views.MonthGrid,
+          PhoenixLiveSchedule.Views.WeekGrid,
+          PhoenixLiveSchedule.Views.DayView,
+          PhoenixLiveSchedule.Views.NDayView,
+          PhoenixLiveSchedule.Views.YearView,
+          PhoenixLiveSchedule.Views.Agenda,
+          PhoenixLiveSchedule.Views.Timeline,
+          PhoenixLiveSchedule.Views.ResourceView
+        ],
+        Components: [
+          PhoenixLiveSchedule.CalendarComponent,
+          PhoenixLiveSchedule.Components.EventItem,
+          PhoenixLiveSchedule.Components.EventPopover,
+          PhoenixLiveSchedule.Components.Header,
+          PhoenixLiveSchedule.Components.MiniCalendar,
+          PhoenixLiveSchedule.Components.TimeGutter
+        ],
+        "Data structures": [
+          PhoenixLiveSchedule.Event,
+          PhoenixLiveSchedule.Resource,
+          PhoenixLiveSchedule.Availability,
+          PhoenixLiveSchedule.BookingConfig,
+          PhoenixLiveSchedule.DayMarker,
+          PhoenixLiveSchedule.Eventable
+        ],
+        Persistence: [
+          PhoenixLiveSchedule.Store.EventStore,
+          PhoenixLiveSchedule.Store.Ecto.EventStoreEcto,
+          PhoenixLiveSchedule.Store.Ecto.EventSchema,
+          PhoenixLiveSchedule.Store.Ecto.Migrations,
+          PhoenixLiveSchedule.Store.Ecto.RepoHelper
+        ],
+        Utilities: [
+          PhoenixLiveSchedule.PubSub,
+          PhoenixLiveSchedule.Utils.DateHelpers,
+          PhoenixLiveSchedule.Utils.TimeSlots,
+          PhoenixLiveSchedule.Utils.OverlapLayout,
+          PhoenixLiveSchedule.Utils.Constraints,
+          PhoenixLiveSchedule.Utils.I18n,
+          PhoenixLiveSchedule.Utils.Telemetry
+        ]
+      ]
     ]
   end
 

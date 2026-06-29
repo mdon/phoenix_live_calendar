@@ -280,6 +280,14 @@ defmodule PhoenixLiveSchedule.Utils.I18n do
     format_title(:month, date, opts)
   end
 
+  # Timeline and resource are single-date views → a full day label.
+  def format_title(:timeline, %Date{} = date, opts), do: format_title(:day, date, opts)
+  def format_title(:resource, %Date{} = date, opts), do: format_title(:day, date, opts)
+
+  # Fallback for any other/custom view so a header never crashes on an
+  # unrecognised view.
+  def format_title(_view, %Date{} = date, opts), do: format_title(:day, date, opts)
+
   # --- Time formatting ---
 
   @doc """

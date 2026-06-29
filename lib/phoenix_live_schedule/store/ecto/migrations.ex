@@ -73,9 +73,11 @@ if Code.ensure_loaded?(Ecto) do
 
         add(:color, :string)
         add(:text_color, :string)
+        add(:class, :string)
 
         add(:group_id, :string)
         add(:resource_id, :string)
+        add(:resource_ids, {:array, :string})
         add(:category, :string)
 
         add(:editable, :boolean, default: true, null: false)
@@ -84,6 +86,13 @@ if Code.ensure_loaded?(Ecto) do
 
         add(:status, :string, default: "confirmed", null: false)
         add(:transparency, :string, default: "opaque", null: false)
+        add(:priority, :string, default: "normal", null: false)
+        add(:urgency, :string, default: "none", null: false)
+        add(:visibility, :integer, default: 20, null: false)
+
+        add(:icon, :string)
+        add(:badge, :string)
+        add(:border_color, :string)
 
         add(:rrule, :string)
         add(:recurrence_id, :binary_id)
