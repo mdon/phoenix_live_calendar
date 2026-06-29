@@ -187,7 +187,8 @@ defmodule PhoenixLiveSchedule.Views.WeekGrid do
                   "cal-spanning-bar rounded-sm px-1 py-0.5 text-xs font-medium truncate cursor-pointer mx-px mb-px",
                   event.color || "bg-primary",
                   event.text_color || Safe.infer_text_color(event.color),
-                  event.status == :cancelled && "opacity-50 line-through"
+                  event.status == :cancelled && "opacity-50 line-through",
+                  event.class
                 ]}
                 style={allday_bar_style(event, week_start, week_end, @col_count)}
                 phx-click={@on_event_click}

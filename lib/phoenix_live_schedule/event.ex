@@ -312,5 +312,4 @@ defmodule PhoenixLiveSchedule.Event do
   defp end_time_of(%DateTime{} = dt), do: DateTime.to_time(dt)
   defp end_time_of(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_time(ndt)
   defp end_time_of(%Date{}), do: nil
-  defp end_time_of(_), do: nil
 end

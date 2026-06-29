@@ -116,7 +116,12 @@ defmodule PhoenixLiveSchedule.PubSub do
     pubsub = pubsub_server(opts)
 
     if pubsub do
-      Phoenix.PubSub.broadcast_from(pubsub, self(), topic, {:phoenix_live_schedule, event_type, payload})
+      Phoenix.PubSub.broadcast_from(
+        pubsub,
+        self(),
+        topic,
+        {:phoenix_live_schedule, event_type, payload}
+      )
     else
       {:error, :no_pubsub_configured}
     end

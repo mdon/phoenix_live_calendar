@@ -67,20 +67,20 @@ defmodule PhoenixLiveSchedule do
   alias PhoenixLiveSchedule.{Availability, BookingConfig, DayMarker, Event, Resource}
 
   @doc """
-  Returns whether PhoenixLiveSchedule CSS integration has been installed.
+  Returns whether PhoenixLiveSchedule CSS integration has been wired up.
 
-  Checks common app.css locations for the PhoenixLiveSchedule source directive.
-  Used at compile time to warn developers who forgot to run `mix phoenix_live_schedule.install`.
+  Looks for the package name in the common `app.css` locations **and** in any
+  `assets/css/*.css` — so it also recognises a generated Tailwind sources file
+  (e.g. PhoenixKit's `_phoenix_kit_sources.css`, which `@source`s the package
+  automatically). Used at compile time to warn developers who haven't run
+  `mix phoenix_live_schedule.install` and aren't wiring it some other way.
   """
   @spec installed?() :: boolean()
   def installed? do
-    css_paths = [
-      "assets/css/app.css",
-      "priv/static/assets/app.css",
-      "assets/app.css"
-    ]
-
-    Enum.any?(css_paths, fn path ->
+    (["assets/css/app.css", "priv/static/assets/app.css", "assets/app.css"] ++
+       Path.wildcard("assets/css/*.css"))
+    |> Enum.uniq()
+    |> Enum.any?(fn path ->
       case File.read(path) do
         {:ok, content} -> String.contains?(content, "phoenix_live_schedule")
         _ -> false

@@ -4,14 +4,27 @@ A comprehensive calendar and scheduling component library for Phoenix LiveView.
 
 Server-rendered calendar views with optional drag interactions, real-time PubSub sync, booking constraints, and Ecto persistence. Zero JavaScript required for the base layer.
 
+## Phoenix-first — it looks right without JavaScript
+
+This is the guiding principle: every view (month, week, day, N-day, year,
+agenda, timeline, resource) is computed **in Elixir** and rendered as plain
+HEEx + Tailwind over the LiveView socket — no charting JS, no `<canvas>`, and
+nothing that has to boot on the client for the layout to be correct. The JS
+hooks are **progressive enhancement only** (drag-to-select / move / resize, the
+day-marker ticker, touch handling). With them absent the calendar still renders
+and works: navigation, view switching, date/event clicks, and the detail
+popover are all server-driven `phx-click`s, and a day with multiple markers
+still shows its first marker (you only lose the cycling). Add the hooks for
+richer interaction; never depend on them for the page to look right.
+
 ## Features
 
-- **9 view types**: Month, Week, Day, N-day (flexible), Year, Agenda, Timeline, Resource columns, custom duration
+- **8 view types**: Month, Week, Day, N-day (flexible), Year, Agenda, Timeline, Resource columns
 - **Pure Elixir base layer**: Works without any JavaScript
 - **Progressive enhancement**: Optional JS hooks for drag-to-select, drag-to-move, resize
 - **Real-time sync**: Optional PubSub integration for multi-user calendars
 - **Booking system**: Availability windows, slot constraints, capacity, buffers, validation
-- **Accessible**: WCAG AA compliant — ARIA grid, roving tabindex, keyboard navigation, screen reader support
+- **Accessibility-minded**: ARIA grid roles, roving tabindex, and screen-reader labels (full arrow-key grid navigation + focus restoration are on the roadmap)
 - **RTL support**: Full right-to-left layout for Arabic, Hebrew, Persian, Urdu
 - **i18n**: All labels translatable via Gettext or override map
 - **Tailwind CSS**: Uses daisyUI semantic classes, works with any Tailwind theme

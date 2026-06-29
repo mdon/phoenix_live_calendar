@@ -43,9 +43,14 @@ defmodule PhoenixLiveSchedule.Components.Header do
   attr :translations, :map, default: %{}
   attr :class, :string, default: ""
   attr :dir, :atom, default: :ltr
+  attr :help_label, :string, default: "About"
 
   slot :toolbar_start
   slot :toolbar_end
+
+  slot :help,
+    doc:
+      "Optional content for an info (ⓘ) disclosure shown at the end of the toolbar — e.g. a key explaining the calendar's markings. Rendered as a no-JS <details> popover."
 
   def header(assigns) do
     show_today =
@@ -66,8 +71,38 @@ defmodule PhoenixLiveSchedule.Components.Header do
       role="toolbar"
       aria-label={I18n.label(:go_to_today, @translations)}
     >
-      <%!-- Left: today button + custom slot --%>
+      <%!-- Left: info disclosure + today button + custom slot --%>
       <div class="flex items-center gap-2 justify-self-start">
+        <%!-- Info (ⓘ) disclosure: a no-JS <details> popover whose body is the
+             consumer's `:help` slot (e.g. a key for the calendar's markings).
+             Sits in the top-left corner. Inline SVG so the lib carries no
+             icon-font dependency. --%>
+        <details :if={@help != []} class="cal-help dropdown">
+          <summary
+            class="cal-help-toggle btn btn-sm btn-ghost btn-circle list-none [&::-webkit-details-marker]:hidden"
+            aria-label={@help_label}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="w-5 h-5 opacity-60"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+              />
+            </svg>
+          </summary>
+          <div class="cal-help-content dropdown-content z-10 mt-1 w-72 rounded-box bg-base-200 p-3 text-xs leading-relaxed text-base-content/80 shadow-lg">
+            {render_slot(@help)}
+          </div>
+        </details>
+
         {render_slot(@toolbar_start)}
 
         <button

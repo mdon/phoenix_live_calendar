@@ -17,6 +17,7 @@ defmodule PhoenixLiveSchedule.MixProject do
       package: package(),
       docs: docs(),
       aliases: aliases(),
+      dialyzer: [plt_add_apps: [:mix]],
       name: "PhoenixLiveSchedule",
       source_url: @source_url
     ]
@@ -68,7 +69,7 @@ defmodule PhoenixLiveSchedule.MixProject do
       source_ref: "v#{@version}",
       source_url: @source_url,
       main: "PhoenixLiveSchedule",
-      extras: ["README.md", "CHANGELOG.md"]
+      extras: ["README.md", "CHANGELOG.md", "LICENSE"]
     ]
   end
 

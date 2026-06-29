@@ -140,7 +140,10 @@ defmodule PhoenixLiveSchedule.Components.EventItemTest do
       event = %Event{id: "1", start: ~U[2026-04-01 10:00:00Z], title: "Test"}
       assigns = %{event: event}
 
-      html = render(~H"<.event_item event={@event} class=\"my-custom\" />")
+      html =
+        render(~H"""
+        <.event_item event={@event} class="my-custom" />
+        """)
 
       assert html =~ "my-custom"
     end
@@ -149,7 +152,10 @@ defmodule PhoenixLiveSchedule.Components.EventItemTest do
       event = %Event{id: "1", start: ~U[2026-04-01 10:00:00Z], title: "Test"}
       assigns = %{event: event}
 
-      html = render(~H"<.event_item event={@event} on_click=\"click_event\" />")
+      html =
+        render(~H"""
+        <.event_item event={@event} on_click="click_event" />
+        """)
 
       assert html =~ "cursor-pointer"
     end

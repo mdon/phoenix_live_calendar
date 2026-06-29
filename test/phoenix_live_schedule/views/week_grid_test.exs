@@ -125,9 +125,9 @@ defmodule PhoenixLiveSchedule.Views.WeekGridTest do
       assigns = %{dates: dates}
 
       html =
-        render(
-          ~H"<.week_grid dates={@dates} min_time={~T[09:00:00]} max_time={~T[10:00:00]} slot_height=\"5rem\" />"
-        )
+        render(~H"""
+        <.week_grid dates={@dates} min_time={~T[09:00:00]} max_time={~T[10:00:00]} slot_height="5rem" />
+        """)
 
       assert html =~ "height: 5rem"
     end

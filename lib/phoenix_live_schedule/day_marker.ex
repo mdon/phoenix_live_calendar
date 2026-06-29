@@ -133,13 +133,15 @@ defmodule PhoenixLiveSchedule.DayMarker do
     base = Map.new(dates, &{&1, []})
 
     Enum.reduce(markers, base, fn marker, acc ->
-      Enum.reduce(dates, acc, fn date, inner_acc ->
-        if covers_date?(marker, date) do
-          Map.update!(inner_acc, date, &[marker | &1])
-        else
-          inner_acc
-        end
-      end)
+      Enum.reduce(dates, acc, &put_marker_on_date(marker, &1, &2))
     end)
+  end
+
+  defp put_marker_on_date(marker, date, acc) do
+    if covers_date?(marker, date) do
+      Map.update!(acc, date, &[marker | &1])
+    else
+      acc
+    end
   end
 end

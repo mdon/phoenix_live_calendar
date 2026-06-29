@@ -23,6 +23,17 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
   attr :today, Date, default: nil
   attr :week_start, :integer, default: 1
   attr :max_events, :integer, default: 3
+
+  attr :max_multiday, :integer,
+    default: nil,
+    doc:
+      "Max multi-day bar rows to show per day cell; bars beyond it fold into the day's \"+N more\" link. `nil` (default) shows every bar (no cap)."
+
+  attr :expand_cells, :boolean,
+    default: false,
+    doc:
+      "When true, day cells grow vertically to fit all their bars (min-height, no clipping) instead of a fixed height that clips overflow. Useful when every event must stay visible (e.g. project bars)."
+
   attr :show_week_numbers, :boolean, default: false
   attr :show_weekends, :boolean, default: true
   attr :fixed_weeks, :boolean, default: true
@@ -77,10 +88,10 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
         Telemetry.measure_and_warn(
           :slot_layout,
           %{multi_day_events: length(multi_day_events), weeks: length(weeks)},
-          fn -> Enum.map(weeks, fn week -> compute_week_slots(week, multi_day_events) end) end
+          fn -> compute_all_week_slots(weeks, multi_day_events) end
         )
       else
-        Enum.map(weeks, fn week -> compute_week_slots(week, multi_day_events) end)
+        compute_all_week_slots(weeks, multi_day_events)
       end
 
     day_names =
@@ -138,7 +149,11 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
         <div
           :for={day <- week}
           class={[
-            "cal-day-cell border-r border-base-content/5 min-h-24 h-24 md:h-28 lg:h-32 overflow-hidden relative",
+            "cal-day-cell border-r border-base-content/5 relative",
+            if(@expand_cells,
+              do: "min-h-24 md:min-h-28 lg:min-h-32",
+              else: "min-h-24 h-24 md:h-28 lg:h-32 overflow-hidden"
+            ),
             cell_classes(day, @date, @today, @selected_date),
             marker_bg_class(Map.get(@markers_by_date, day, []))
           ]}
@@ -172,31 +187,46 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
               />
             </div>
 
-            <%!-- All events: multi-day first, then single-day --%>
-            <% multi_bars = multiday_bars_for_day(day, slot_data)
+            <%!-- All events: multi-day first, then single-day. Multi-day bars
+                 may be capped (@max_multiday); capped-off bars + single-day
+                 overflow both feed the day's "+N more" link. --%>
+            <% {multi_bars, multi_hidden} = multiday_bars_for_day(day, slot_data, @max_multiday)
             day_events = Map.get(@events_by_date, day, [])
             visible_single = Enum.take(day_events, @max_events)
-            overflow = length(day_events) - @max_events %>
+            overflow = max(length(day_events) - @max_events, 0) + multi_hidden %>
 
-            <%!-- Multi-day events: full width, edge to edge --%>
-            <div
-              :for={{event, is_start, is_end} <- multi_bars}
-              class={[
-                "cal-multiday-bar h-3.5 text-[0.6rem] leading-tight font-medium truncate cursor-pointer px-1 flex items-center",
-                event.color || "bg-primary",
-                event.text_color || Safe.infer_text_color(event.color),
-                multiday_rounding_class(is_start, is_end),
-                event.status == :cancelled && "opacity-50 line-through"
-              ]}
-              phx-click={@on_event_click}
-              phx-value-event-id={event.id}
-              title={event.title}
-            >
-              <%= if is_start do %>
-                <span :if={event.icon} class="mr-0.5">{event.icon}</span>
-                <span class="truncate">{event.title || "(No title)"}</span>
+            <%!-- Multi-day events: full width, edge to edge. Spacers hold empty
+                 slots so each bar keeps the same vertical row across days. --%>
+            <%= for entry <- multi_bars do %>
+              <%= case entry do %>
+                <% {:spacer, _idx} -> %>
+                  <div class="cal-multiday-spacer h-3.5" aria-hidden="true"></div>
+                <% {event, is_start, is_end} -> %>
+                  <div
+                    class={[
+                      "cal-multiday-bar h-3.5 text-[0.6rem] leading-tight font-medium truncate cursor-pointer px-1 flex items-center",
+                      event.color || "bg-primary",
+                      event.text_color || Safe.infer_text_color(event.color),
+                      multiday_rounding_class(is_start, is_end),
+                      event.status == :cancelled && "opacity-50 line-through",
+                      event.class,
+                      highlight_class(event, day)
+                    ]}
+                    phx-click={@on_event_click}
+                    phx-value-event-id={event.id}
+                    title={event.title}
+                    style={highlight_style(event, day)}
+                  >
+                    <%!-- Label on the true start day AND at the start of each week
+                         row, so a bar continuing from a previous week (or from
+                         before the visible month) still shows its title. --%>
+                    <%= if is_start or day == hd(week) do %>
+                      <span :if={event.icon} class="mr-0.5">{event.icon}</span>
+                      <span class="truncate">{event.title || "(No title)"}</span>
+                    <% end %>
+                  </div>
               <% end %>
-            </div>
+            <% end %>
 
             <%!-- Single-day events: with margin for visual distinction --%>
             <div
@@ -233,32 +263,92 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
 
   # -- Multi-day bars helper (returns flat list for inline rendering) --
 
-  defp multiday_bars_for_day(day, slot_data) do
+  # Returns `{shown_entries, hidden_bar_count}`. With a `max` cap, only the first
+  # `max` slot rows render; real bars (not spacers) pushed past it are counted so
+  # the caller can surface them in the day's "+N more". `nil` = no cap.
+  defp multiday_bars_for_day(day, slot_data, max) do
     if slot_data.slot_count == 0 do
-      []
+      {[], 0}
     else
-      0..(slot_data.slot_count - 1)
-      |> Enum.flat_map(fn idx ->
-        case Map.get(slot_data.slots, idx) do
-          nil ->
-            # Empty placeholder to maintain slot alignment
-            [{:spacer, idx}]
+      {shown, hidden_count} =
+        0..(slot_data.slot_count - 1)
+        |> Enum.map(&slot_entry_for_day(&1, slot_data, day))
+        |> cap_multiday(max)
 
-          event ->
-            if PhoenixLiveSchedule.Event.on_date?(event, day) do
-              is_start = event_start_date(event) == day
-              is_end = event_is_last_day?(event, day)
-              [{event, is_start, is_end}]
-            else
-              [{:spacer, idx}]
-            end
-        end
-      end)
-      |> Enum.reject(fn
-        {:spacer, _} -> true
-        _ -> false
-      end)
+      {drop_trailing_spacers(shown), hidden_count}
     end
+  end
+
+  defp cap_multiday(entries, max) when is_integer(max) and length(entries) > max do
+    {shown, hidden} = Enum.split(entries, max)
+    {shown, Enum.count(hidden, fn entry -> not match?({:spacer, _}, entry) end)}
+  end
+
+  defp cap_multiday(entries, _max), do: {entries, 0}
+
+  # Each slot becomes either a rendered bar tuple or a {:spacer, idx} placeholder.
+  # Spacers keep an event's vertical slot position identical across every day it
+  # spans, so a multi-day bar reads as one continuous horizontal line instead of
+  # shifting up on days where an earlier slot happens to be empty. A slot may
+  # hold several non-overlapping events across the week, so pick the one active
+  # on `day` (at most one, since same-slot events never overlap).
+  defp slot_entry_for_day(idx, slot_data, day) do
+    slot_data.slots
+    |> Map.get(idx, [])
+    |> Enum.find(&PhoenixLiveSchedule.Event.on_date?(&1, day))
+    |> case do
+      nil -> {:spacer, idx}
+      event -> {event, event_start_date(event) == day, event_is_last_day?(event, day)}
+    end
+  end
+
+  # Leading/interior spacers are kept for alignment; trailing spacers (slots after
+  # this day's last real bar) are dropped so cells get no empty tail rows.
+  defp drop_trailing_spacers(entries) do
+    entries
+    |> Enum.reverse()
+    |> Enum.drop_while(&match?({:spacer, _}, &1))
+    |> Enum.reverse()
+  end
+
+  # Per-day highlight: an event may carry `extra.highlight = %{from, to, class}`
+  # to style only a sub-range of its multi-day bar (e.g. the overdue portion).
+  # `class` is applied to day segments where `from <= day < to` (`from`/`to` are
+  # optional; nil means open-ended on that side). The class string is the
+  # consumer's responsibility to make Tailwind-visible.
+  defp highlight_class(%{extra: %{highlight: %{class: class} = h}}, day) do
+    if day_in_highlight?(day, h), do: class
+  end
+
+  defp highlight_class(_event, _day), do: nil
+
+  # Exposes CSS custom properties on each in-range day of a `from`-anchored
+  # highlight, so a consumer's CSS can drive per-day animations/gradients:
+  #   * `--pk-hl-index` — 0-based offset from `from` (per-event)
+  #   * `--pk-hl-day`   — the day's absolute date number (gregorian days), shared
+  #                       across events, so a date-based animation stays in sync
+  #                       across every highlighted bar (a wave that travels at one
+  #                       speed regardless of each range's length)
+  #   * `--pk-hl-count` — range length (only when the highlight has a bounded `to`)
+  defp highlight_style(%{extra: %{highlight: %{from: %Date{} = from} = h}}, day) do
+    if day_in_highlight?(day, h) do
+      base = "--pk-hl-index: #{Date.diff(day, from)}; --pk-hl-day: #{Date.to_gregorian_days(day)}"
+
+      case Map.get(h, :to) do
+        %Date{} = to -> base <> "; --pk-hl-count: #{Date.diff(to, from)}"
+        _ -> base
+      end
+    end
+  end
+
+  defp highlight_style(_event, _day), do: nil
+
+  defp day_in_highlight?(day, h) do
+    from = Map.get(h, :from)
+    to = Map.get(h, :to)
+
+    (is_nil(from) or Date.compare(day, from) != :lt) and
+      (is_nil(to) or Date.compare(day, to) == :lt)
   end
 
   # Static strings for Tailwind purge safety — each return value is a
@@ -348,45 +438,65 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
   # -- Slot computation --
   # Assigns a consistent row index to each multi-day event across all days of the week
 
+  defp compute_all_week_slots(weeks, multi_day_events) do
+    Enum.map(weeks, fn week -> compute_week_slots(week, multi_day_events) end)
+  end
+
   defp compute_week_slots(week, multi_day_events) do
     week_start = hd(week)
     week_end = Date.add(List.last(week), 1)
 
-    # Events active this week, sorted by start then longest first
+    # Events active this week, ordered by slot_priority (lets a consumer group
+    # related bars into the top slots), then start, then longest first.
     active =
       multi_day_events
       |> Enum.filter(&Event.overlaps_range?(&1, week_start, week_end))
-      |> Enum.sort_by(fn e -> {event_start_date(e), -Event.duration_seconds(e)} end)
+      |> Enum.sort_by(fn e ->
+        {slot_priority(e), event_start_date(e), -Event.duration_seconds(e)}
+      end)
 
     if active == [] do
       %{slot_count: 0, slots: %{}}
     else
       # Greedily assign slot indices
-      {slots_map, slot_count} =
-        Enum.reduce(active, {%{}, 0}, fn event, {assignments, max_slot} ->
-          # Find the first slot index not occupied by an overlapping event
-          used =
-            assignments
-            |> Map.values()
-            |> Enum.filter(fn {other_event, _slot_idx} ->
-              events_overlap_dates?(event, other_event)
-            end)
-            |> Enum.map(fn {_event, slot_idx} -> slot_idx end)
-            |> MapSet.new()
+      {slots_map, slot_count} = Enum.reduce(active, {%{}, 0}, &assign_event_slot/2)
 
-          slot_idx =
-            Stream.iterate(0, &(&1 + 1))
-            |> Enum.find(&(not MapSet.member?(used, &1)))
-
-          {Map.put(assignments, event.id, {event, slot_idx}), max(max_slot, slot_idx + 1)}
-        end)
-
-      # Convert to %{slot_index => event} for easy lookup
+      # Convert to %{slot_index => [events]}. A slot can hold MORE than one event
+      # per week — non-overlapping events legitimately share a row — so group
+      # rather than collapse to one (which would drop all but the last).
       by_slot =
-        Map.new(slots_map, fn {_id, {event, idx}} -> {idx, event} end)
+        slots_map
+        |> Map.values()
+        |> Enum.group_by(fn {_event, idx} -> idx end, fn {event, _idx} -> event end)
 
       %{slot_count: slot_count, slots: by_slot}
     end
+  end
+
+  # Optional per-event slot ordering hint (`extra.slot_priority`, integer): lower
+  # values are packed into lower (top) slots, so a consumer can group related
+  # bars together. Defaults to 0 (no preference).
+  defp slot_priority(%{extra: %{slot_priority: p}}) when is_integer(p), do: p
+  defp slot_priority(_event), do: 0
+
+  # Greedily assign one event the first slot index not occupied by an
+  # overlapping event already placed this week.
+  defp assign_event_slot(event, {assignments, max_slot}) do
+    used = occupied_slot_indices(assignments, event)
+
+    slot_idx =
+      Stream.iterate(0, &(&1 + 1))
+      |> Enum.find(&(not MapSet.member?(used, &1)))
+
+    {Map.put(assignments, event.id, {event, slot_idx}), max(max_slot, slot_idx + 1)}
+  end
+
+  defp occupied_slot_indices(assignments, event) do
+    assignments
+    |> Map.values()
+    |> Enum.filter(fn {other_event, _slot_idx} -> events_overlap_dates?(event, other_event) end)
+    |> Enum.map(fn {_event, slot_idx} -> slot_idx end)
+    |> MapSet.new()
   end
 
   # -- Private helpers --

@@ -9,6 +9,19 @@ defmodule PhoenixLiveSchedule.Views.MonthGridTest do
 
   defp render(content), do: rendered_to_string(content)
 
+  # Five bars that all overlap → slots 0..4 on every shared day.
+  defp overlapping_bars do
+    for i <- 1..5 do
+      %Event{
+        id: "e#{i}",
+        start: ~D[2026-04-06],
+        end: ~D[2026-04-13],
+        title: "Ev#{i}",
+        all_day: true
+      }
+    end
+  end
+
   describe "month_grid/1" do
     test "renders month grid structure" do
       assigns = %{date: ~D[2026-04-01]}
@@ -152,6 +165,263 @@ defmodule PhoenixLiveSchedule.Views.MonthGridTest do
       # First column header should be Sun
       [first_header | _] = Regex.scan(~r/cal-day-header[^>]*>([^<]+)/, html)
       assert hd(first_header) =~ "Sun"
+    end
+  end
+
+  describe "multi-day event slot alignment" do
+    # A and B overlap on 04-07, so A takes slot 0 and B takes slot 1. On 04-08
+    # A has ended, leaving slot 0 empty under B — that gap must render a spacer
+    # so B stays on its own row (instead of shifting up to slot 0).
+    test "renders a spacer for an empty leading slot under a later-row bar" do
+      events = [
+        %Event{id: "a", start: ~D[2026-04-06], end: ~D[2026-04-08], title: "Alpha", all_day: true},
+        %Event{id: "b", start: ~D[2026-04-07], end: ~D[2026-04-10], title: "Bravo", all_day: true}
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "cal-multiday-spacer"
+      assert html =~ "cal-multiday-bar"
+      assert html =~ "Alpha"
+      assert html =~ "Bravo"
+    end
+
+    test "renders no spacer for a single multi-day event (trailing slots dropped)" do
+      events = [
+        %Event{id: "a", start: ~D[2026-04-06], end: ~D[2026-04-09], title: "Alpha", all_day: true}
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "cal-multiday-bar"
+      refute html =~ "cal-multiday-spacer"
+    end
+
+    test "labels a bar that started before the visible month (at each week start)" do
+      # Starts 2026-03-20, well before the April grid, so its true start day is
+      # never in view — the label must still appear via the week-start rule.
+      events = [
+        %Event{
+          id: "cont",
+          start: ~D[2026-03-20],
+          end: ~D[2026-04-20],
+          title: "Continues",
+          all_day: true
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "Continues"
+    end
+
+    test "renders two non-overlapping multi-day events that share a slot in one week" do
+      # Both fall in the Apr 6–12 week and don't overlap (Alpha 6–7, Bravo 9–10),
+      # so the greedy packer gives both slot 0. Both bars must still render.
+      events = [
+        %Event{
+          id: "a",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-08],
+          title: "AlphaSlot",
+          all_day: true
+        },
+        %Event{
+          id: "b",
+          start: ~D[2026-04-09],
+          end: ~D[2026-04-11],
+          title: "BravoSlot",
+          all_day: true
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "AlphaSlot"
+      assert html =~ "BravoSlot"
+    end
+
+    test "applies extra.highlight class to the in-range day segments of a bar" do
+      events = [
+        %Event{
+          id: "od",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-13],
+          title: "Overdue",
+          all_day: true,
+          extra: %{highlight: %{from: ~D[2026-04-10], class: "pk-overdue"}}
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "pk-overdue"
+    end
+
+    test "omits extra.highlight class when the range does not intersect the bar" do
+      events = [
+        %Event{
+          id: "od",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-08],
+          title: "NotYet",
+          all_day: true,
+          extra: %{highlight: %{from: ~D[2026-04-20], class: "pk-overdue"}}
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      refute html =~ "pk-overdue"
+    end
+
+    test "exposes a per-day --pk-hl-index on highlighted segments (for wave/gradient)" do
+      events = [
+        %Event{
+          id: "od",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-13],
+          title: "Overdue",
+          all_day: true,
+          extra: %{highlight: %{from: ~D[2026-04-10], class: "pk-overdue"}}
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      # Highlight starts 04-10, so 04-10/11/12 carry indices 0/1/2.
+      assert html =~ "--pk-hl-index: 0"
+      assert html =~ "--pk-hl-index: 1"
+      assert html =~ "--pk-hl-index: 2"
+    end
+
+    test "exposes --pk-hl-count when the highlight has a bounded `to`" do
+      events = [
+        %Event{
+          id: "od",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-13],
+          title: "Overdue",
+          all_day: true,
+          # 04-10 .. 04-13 exclusive = 3 days
+          extra: %{highlight: %{from: ~D[2026-04-10], to: ~D[2026-04-13], class: "pk-overdue"}}
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "--pk-hl-count: 3"
+    end
+
+    test "exposes the absolute date as --pk-hl-day (for cross-bar date sync)" do
+      events = [
+        %Event{
+          id: "od",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-13],
+          title: "Overdue",
+          all_day: true,
+          extra: %{highlight: %{from: ~D[2026-04-10], class: "pk-overdue"}}
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "--pk-hl-day: #{Date.to_gregorian_days(~D[2026-04-10])}"
+    end
+
+    test "extra.slot_priority packs lower-priority events into top slots" do
+      # Both start 04-06 and overlap. By natural order (longest first) A (longer)
+      # would take slot 0; slot_priority 0 on B overrides that, so B lands on top.
+      events = [
+        %Event{
+          id: "a",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-13],
+          title: "AaaPrio",
+          all_day: true,
+          extra: %{slot_priority: 1}
+        },
+        %Event{
+          id: "b",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-10],
+          title: "BbbPrio",
+          all_day: true,
+          extra: %{slot_priority: 0}
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      # Both label on their shared start cell, in slot order → B (slot 0) first.
+      {b_pos, _} = :binary.match(html, "BbbPrio")
+      {a_pos, _} = :binary.match(html, "AaaPrio")
+      assert b_pos < a_pos
+    end
+
+    test "appends a multi-day event's :class to its bar (consumer styling hook)" do
+      events = [
+        %Event{
+          id: "a",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-10],
+          title: "Late",
+          all_day: true,
+          class: "pk-custom-bar-style"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "pk-custom-bar-style"
+    end
+  end
+
+  describe "expand_cells" do
+    test "defaults to fixed-height, overflow-clipped day cells" do
+      assigns = %{date: ~D[2026-04-01]}
+      html = render(~H"<.month_grid date={@date} />")
+
+      # fixed height tier + clipping
+      assert html =~ "lg:h-32"
+    end
+
+    test "expand_cells grows day cells to fit (min-height, no clip)" do
+      assigns = %{date: ~D[2026-04-01]}
+      html = render(~H"<.month_grid date={@date} expand_cells={true} />")
+
+      assert html =~ "lg:min-h-32"
+      # no fixed-height tier on the cell (so it can grow with its bars)
+      refute html =~ "lg:h-32"
+    end
+  end
+
+  describe "max_multiday" do
+    test "nil (default) shows every multi-day bar with no overflow link" do
+      assigns = %{date: ~D[2026-04-01], events: overlapping_bars()}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "Ev5"
+      refute html =~ "cal-more-link"
+    end
+
+    test "caps the bars and folds the rest into the day's +N more" do
+      assigns = %{date: ~D[2026-04-01], events: overlapping_bars()}
+      html = render(~H"<.month_grid date={@date} events={@events} max_multiday={2} />")
+
+      assert html =~ "cal-more-link"
     end
   end
 end

@@ -275,31 +275,20 @@ defmodule PhoenixLiveSchedule.Utils.DateHelpers do
       # Filter out any invalid events that would crash on_date?
       safe_events =
         Enum.filter(events, fn
-          %PhoenixLiveSchedule.Event{id: id, start: start} when not is_nil(id) and not is_nil(start) ->
+          %PhoenixLiveSchedule.Event{id: id, start: start}
+          when not is_nil(id) and not is_nil(start) ->
             true
 
           invalid ->
-            Logger.warning("[PhoenixLiveSchedule] Skipping invalid event in grouping: #{inspect(invalid)}")
+            Logger.warning(
+              "[PhoenixLiveSchedule] Skipping invalid event in grouping: #{inspect(invalid)}"
+            )
+
             false
         end)
 
       Enum.reduce(safe_events, base, fn event, acc ->
-        Enum.reduce(dates, acc, fn date, inner_acc ->
-          try do
-            if PhoenixLiveSchedule.Event.on_date?(event, date) do
-              Map.update!(inner_acc, date, &[event | &1])
-            else
-              inner_acc
-            end
-          rescue
-            e ->
-              Logger.warning(
-                "[PhoenixLiveSchedule] Error grouping event #{inspect(event.id)}: #{Exception.message(e)}"
-              )
-
-              inner_acc
-          end
-        end)
+        Enum.reduce(dates, acc, &put_event_on_date(event, &1, &2))
       end)
       |> Map.new(fn {date, events} -> {date, Enum.reverse(events)} end)
     end
@@ -312,6 +301,21 @@ defmodule PhoenixLiveSchedule.Utils.DateHelpers do
   end
 
   # -- Private helpers --
+
+  defp put_event_on_date(event, date, acc) do
+    if PhoenixLiveSchedule.Event.on_date?(event, date) do
+      Map.update!(acc, date, &[event | &1])
+    else
+      acc
+    end
+  rescue
+    e ->
+      Logger.warning(
+        "[PhoenixLiveSchedule] Error grouping event #{inspect(event.id)}: #{Exception.message(e)}"
+      )
+
+      acc
+  end
 
   defp shift_month(%Date{year: y, month: m, day: d}, offset) do
     total_months = y * 12 + (m - 1) + offset

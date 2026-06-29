@@ -11,7 +11,10 @@ defmodule PhoenixLiveScheduleTest do
 
     test "creates an event with optional fields" do
       event =
-        PhoenixLiveSchedule.event("1", ~U[2026-04-01 10:00:00Z], title: "Meeting", color: "bg-primary")
+        PhoenixLiveSchedule.event("1", ~U[2026-04-01 10:00:00Z],
+          title: "Meeting",
+          color: "bg-primary"
+        )
 
       assert event.title == "Meeting"
       assert event.color == "bg-primary"

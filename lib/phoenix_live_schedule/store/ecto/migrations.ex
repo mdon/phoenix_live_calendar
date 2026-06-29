@@ -96,18 +96,29 @@ if Code.ensure_loaded?(Ecto) do
 
       # Performance indexes
       create_if_not_exists(index(:phoenix_live_schedule_events, [:start_at], prefix: prefix))
-      create_if_not_exists(index(:phoenix_live_schedule_events, [:calendar_id, :start_at], prefix: prefix))
-      create_if_not_exists(index(:phoenix_live_schedule_events, [:resource_id, :start_at], prefix: prefix))
 
       create_if_not_exists(
-        index(:phoenix_live_schedule_events, [:calendar_id, :resource_id, :start_at], prefix: prefix)
+        index(:phoenix_live_schedule_events, [:calendar_id, :start_at], prefix: prefix)
+      )
+
+      create_if_not_exists(
+        index(:phoenix_live_schedule_events, [:resource_id, :start_at], prefix: prefix)
+      )
+
+      create_if_not_exists(
+        index(:phoenix_live_schedule_events, [:calendar_id, :resource_id, :start_at],
+          prefix: prefix
+        )
       )
 
       create_if_not_exists(index(:phoenix_live_schedule_events, [:group_id], prefix: prefix))
       create_if_not_exists(index(:phoenix_live_schedule_events, [:recurrence_id], prefix: prefix))
 
       # Resource table
-      create_if_not_exists table(:phoenix_live_schedule_resources, primary_key: false, prefix: prefix) do
+      create_if_not_exists table(:phoenix_live_schedule_resources,
+                             primary_key: false,
+                             prefix: prefix
+                           ) do
         add(:id, :binary_id, primary_key: true)
         add(:title, :string, null: false)
         add(:parent_id, :binary_id)

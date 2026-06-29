@@ -89,7 +89,10 @@ defmodule PhoenixLiveSchedule.Utils.Safe do
     if Regex.match?(~r/^\d+(\.\d+)?\s*(px|rem|em|vh|vw|%|ch|ex|vmin|vmax)$/, value) do
       value
     else
-      Logger.warning("[PhoenixLiveSchedule] Invalid CSS dimension: #{inspect(value)}, using fallback")
+      Logger.warning(
+        "[PhoenixLiveSchedule] Invalid CSS dimension: #{inspect(value)}, using fallback"
+      )
+
       "3rem"
     end
   end

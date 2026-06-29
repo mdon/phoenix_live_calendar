@@ -7,6 +7,10 @@
 
 PhoenixLiveSchedule is a standalone Hex package with no framework dependencies beyond Phoenix LiveView. It is designed to work with any Phoenix app, and optionally integrates with PhoenixKit via a separate bridge package.
 
+### Guiding philosophy: Phoenix-first — looks right without JavaScript
+
+This is the load-bearing design rule (shared with its sibling `phoenix_live_gantt`): **everything renders correctly server-side; JS is progressive enhancement, never a layout dependency.** Every view is computed in Elixir and emitted as HEEx + Tailwind — no JS-measured layout, no client-built DOM. The only two hooks in the render path (`MarkerTicker`, `PopoverPause`) degrade gracefully: with JS off a day's first marker still shows (you lose only the cycling), and the popover is `:if={@show && @event}` server state (the hook just pauses tickers). All primary interactions — navigate, view-switch, date/event click, popover open/close — are server-driven `phx-click`s over the base LiveView socket. The drag/resize/touch/responsive hooks add interaction but the calendar must look and read correctly without them. **When adding anything, the no-hooks render must still look good** — if a feature only works with a hook, give it a sensible static fallback (as MarkerTicker does).
+
 ### Architecture: Layered
 
 ```
@@ -46,14 +50,9 @@ mix phoenix_live_schedule.install
 `mix phoenix_live_schedule.install` automatically:
 - Finds `app.css` (checks `assets/css/app.css`, `priv/static/assets/app.css`, `assets/app.css`)
 - Adds `@source "../../deps/phoenix_live_schedule";` after the last existing `@source` line
-- Idempotent — safe to run multiple times
-- Prints JS hook setup instructions
-- Accepts `--css-path` override
-
-**TODO:** The install task currently only handles CSS and prints JS as optional instructions. The JS hooks are now needed for the MarkerTicker and PopoverPause features (not just drag interactions). The install task should also:
-- Find `app.js` and add the JS import line
-- Add `...window.PhoenixLiveScheduleHooks` to the LiveSocket hooks config
-- Or at minimum, make the printed instructions clearer that JS is recommended for full functionality
+- Finds `app.js` (checks `assets/js/app.js`, `assets/app.js`), adds the JS hook import after the last `import` line, and spreads `...window.PhoenixLiveScheduleHooks` into the LiveSocket `hooks: { … }` config **when there is exactly one** such object literal (anything else — e.g. `hooks: Hooks` — is left untouched and printed as a manual step, so it never corrupts app.js)
+- Idempotent — safe to run multiple times (markers `/* PhoenixLiveSchedule CSS Integration */` + `// PhoenixLiveSchedule JS hooks`)
+- Accepts `--css-path` and `--js-path` overrides
 
 ### JS Hook Setup (required for full functionality)
 
@@ -105,7 +104,7 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 
 ## Current Status
 
-**All layers implemented. 264 tests passing. Zero warnings. Zero credo strict issues.**
+**All layers implemented. 284 tests passing. Zero warnings. Zero credo strict issues. Dialyzer clean.**
 
 - 34 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), 24 test files
 - Layer 0 (Pure Elixir views): Complete — all 8 views
@@ -160,7 +159,7 @@ phoenix_live_schedule/
                                         #   Catch-all handler for unknown events (logs, never crashes)
                                         #   Defensive callback invocation with try/rescue
 
-      # --- View Function Components (9 views) ---
+      # --- View Function Components (8 views) ---
       views/
         month_grid.ex                   # Month grid — multi-day events as compact spanning bars (h-3.5, text-[0.6rem]),
                                         #   slot assignment for consistent positions across days,
@@ -179,216 +178,6 @@ phoenix_live_schedule/
         agenda.ex                       # Agenda — chronological list grouped by date
         timeline.ex                     # Timeline — horizontal time axis, resource rows
         resource_view.ex                # Resource columns — resources as columns in vertical time grid
-        waterfall.ex                    # Waterfall/Gantt — horizontal bars on date-range axis,
-                                        #   zoom levels (day/week/month), today marker, progress fill,
-                                        #   milestones (zero-duration diamonds), SVG connector arrows for deps,
-                                        #   grouping via category/extra.group, assignee display,
-                                        #   non-working day shading, uses standard Event struct.
-                                        #
-                                        #   Connector routing (orthogonal elbow paths):
-                                        #   - Forward deps: east stem → bus-aware mid_x → east stem into target
-                                        #     Same-source arrows share mid_x=x1+elbow (branch tree)
-                                        #     Same-target arrows share mid_x=target_x-elbow (merge funnel)
-                                        #   - Backward deps (target starts before source ends): east stem →
-                                        #     south/north past source row border → west to target column →
-                                        #     south/north to target row → east stem into target. Styled
-                                        #     dashed red with red arrow marker. Flags scheduling conflicts
-                                        #     that require "time travel" so planners can see them.
-                                        #   - Coordinate system: everything in pixels against fixed
-                                        #     content_width = total_days × day_px. SVG gets explicit
-                                        #     width/height/viewBox matching the content area.
-                                        #
-                                        #   Row ordering (topological within groups):
-                                        #   - Start-date sorted, BUT when an event is placed, its direct
-                                        #     dependents whose other prerequisites are already placed get
-                                        #     placed immediately after. Recursively chains.
-                                        #   - Minimizes arrow crossings by putting connected events adjacent.
-                                        #   - Manual override: set `extra.order` (integer) on any event to
-                                        #     pin its position; unordered events use their computed
-                                        #     placement index as the sort key.
-                                        #
-                                        #   Data mapping (all via standard Event struct):
-                                        #   - title/start/end: task name and dates
-                                        #   - color/status: styling
-                                        #   - extra.progress_pct (0-100): progress fill
-                                        #   - extra.group or category: group header + boundary
-                                        #   - extra.assignee: shown in label
-                                        #   - start == end: renders as milestone diamond
-                                        #
-                                        #   Connectors: list of connector maps passed separately.
-                                        #   Shape (all optional except from/to):
-                                        #     %{
-                                        #       from: id, to: id,
-                                        #       # --- semantics ---
-                                        #       type: :fs | :ss | :ff | :sf,  # default :fs
-                                        #       critical: boolean,              # default false
-                                        #       label: String.t | nil,          # default nil
-                                        #       label_orientation: :horizontal  # or :vertical
-                                        #       # --- styling overrides (fall through to component defaults) ---
-                                        #       color_class: "text-*",          # e.g. "text-success"
-                                        #       stroke_width: number,           # e.g. 2.5
-                                        #       opacity: 0..1,
-                                        #       dasharray: "8 2" | "none",
-                                        #       # --- routing overrides ---
-                                        #       exit_stem: integer,             # source-side elbow px
-                                        #       entry_stem: integer,            # target-side elbow px
-                                        #       detour_side: :auto | :above | :below,
-                                        #       bar_clearance: integer,         # min px from intermediate bars
-                                        #       shape: :auto | :direct | :detour,
-                                        #       avoid_collisions: boolean       # overrides component default
-                                        #     }
-                                        #
-                                        #   Dependency types (standard Gantt semantics):
-                                        #   - :fs finish-to-start   — A must finish before B can start
-                                        #   - :ss start-to-start    — A must start   before B can start
-                                        #   - :ff finish-to-finish  — A must finish  before B can finish
-                                        #   - :sf start-to-finish   — A must start   before B can finish
-                                        #
-                                        #   Every arrow is the same 3-segment shape
-                                        #   `M x1 y1 H mid V y2 H x2`. The type only changes
-                                        #   which bar edges x1/x2 anchor to and which side of
-                                        #   each bar the stems exit/enter. SVG `orient="auto"`
-                                        #   auto-orients the arrowhead from the final segment.
-                                        #   Only :fs produces a 5-segment backward detour when
-                                        #   the schedule violates the constraint — :ss/:ff/:sf
-                                        #   stay coherent because their stems exit the same
-                                        #   side on both ends.
-                                        #
-                                        #   Bus routing: outgoing/incoming counts are keyed by
-                                        #   {event_id, type}, so mixed-type arrows from one
-                                        #   source don't collapse into a single (wrong) bus.
-                                        #
-                                        #   Bus stagger (forward fan-out / fan-in spreading):
-                                        #   `bus_stagger_outgoing_px` and `bus_stagger_incoming_px`
-                                        #   (component-level, default 0 = merged). When > 0,
-                                        #   each arrow in a fan-out/fan-in bus gets its own trunk
-                                        #   x offset by `lane * stagger_px` from the base position.
-                                        #   Lane assignment is per-{event,side,direction} bus,
-                                        #   sorted by other-end row position so adjacent rows
-                                        #   produce adjacent lanes (visually monotonic comb).
-                                        #   Per-task override via `extra.bus_stagger_outgoing_px`
-                                        #   / `extra.bus_stagger_incoming_px`. When both source
-                                        #   and target staggers apply, fan-out wins (matches
-                                        #   choose_mid_x's existing precedence).
-                                        #
-                                        #   Bar-edge attach (where an arrow connects to the bar):
-                                        #   `bus_attach_mode` chooses one of three strategies for
-                                        #   the y-position on the bar's edge.
-                                        #   - `:smart` (default) — for each side of each task, count
-                                        #     outgoing arrows by direction. Majority going down →
-                                        #     outgoing attaches to the bar's BOTTOM region (60% of
-                                        #     bar height). Majority going up → outgoing at TOP
-                                        #     (40%). Incoming gets the OPPOSITE region. Single
-                                        #     direction on side → collapse to row center. Yields
-                                        #     natural visual flow: typical downward arrows exit
-                                        #     source bottom, enter target top.
-                                        #   - `:type_zoned` — outgoing always at top, incoming
-                                        #     always at bottom (regardless of direction). Uses
-                                        #     `bus_split_offset_pct` (default 40 → 40/60 split).
-                                        #   - `:center` — disable splits; everything centered.
-                                        #   Per-task override via `extra.bus_attach_mode` on the
-                                        #   Event. `bus_attach_inner_pct` (default 40) controls
-                                        #   the smart-mode split offset.
-                                        #
-                                        #   Date sorting: `Enum.sort_by(events, &start, Date)`
-                                        #   with the explicit `Date` sorter — without it, default
-                                        #   term ordering compares `:day` key first, putting
-                                        #   ~D[2026-07-05] BEFORE ~D[2026-05-14] (5 < 14).
-                                        #
-                                        #   Critical-first dependent placement: when a source has
-                                        #   multiple direct dependents, `place_dependents/5` sorts
-                                        #   them `{not critical?, gregorian_days}` so critical-path
-                                        #   children land adjacent to the source. Date is the
-                                        #   tiebreaker (gregorian-days int because Date in tuple
-                                        #   keys re-triggers the sort gotcha above).
-                                        #
-                                        #   Critical flag renders stroke-primary + thicker
-                                        #   stroke + `cal-wf-arrow-critical` marker. Invalid
-                                        #   outranks critical (broken schedule stays red dashed).
-                                        #
-                                        #   Labels render as SVG <text> with stroke-base-100
-                                        #   halo (paint-order=stroke), centered on path
-                                        #   midpoint for forward paths, on the detour leg for
-                                        #   backward. Ideal for "2d lag" / "parallel" / etc.
-                                        #
-                                        #   Multiple backward :fs arrows sharing (source,
-                                        #   direction) get staggered lane offsets (2px per lane)
-                                        #   on their detour_y so they don't draw on top of each
-                                        #   other.
-                                        #
-                                        #   Every <path> and label <text> carries
-                                        #   data-from-id / data-to-id / data-type /
-                                        #   data-critical / data-invalid, enabling :has()-based
-                                        #   hover highlighting in consumer CSS without any JS.
-                                        #
-                                        #   Bar-collision avoidance (attr: avoid_collisions,
-                                        #   default true): computes a pixel obstacle map once
-                                        #   per render and shifts the trunk x (forward) or the
-                                        #   final vertical x (backward FS) to the nearest bar-
-                                        #   edge candidate when it would pierce an unrelated
-                                        #   intermediate-row bar. The shift is bounded by each
-                                        #   dep type's valid range so arrow shapes don't break;
-                                        #   if no clean x exists, falls back to preferred
-                                        #   (crossing > broken shape). Disable on very large
-                                        #   Gantts (O(connectors × bars)) or when you prefer
-                                        #   strict bus alignment over obstacle avoidance.
-                                        #
-                                        #   Markers all use fill="currentColor" so a single
-                                        #   text-* color class on the path drives both the line
-                                        #   and its arrowhead. Path uses stroke-current, label
-                                        #   text uses fill-current + stroke-base-100 halo.
-                                        #   Works across every daisyUI theme (theme resolves
-                                        #   text-primary / text-error / etc. per its palette).
-                                        #
-                                        #   Arrowhead geometry: marker viewBox 0 0 10 10 with
-                                        #   refX=6 (path endpoint sits in the wider middle of the
-                                        #   triangle, hides the stroke fully). Arrow tip extends
-                                        #   ~2.4px past the path endpoint, so the non-milestone
-                                        #   target gap is 4px (was 2 pre-fix) so the tip doesn't
-                                        #   overlap the target bar. Milestone gap stays 10px.
-                                        #
-                                        #   Component-level defaults for every hardcoded class
-                                        #   are exposed as attrs (connector_color_class,
-                                        #   critical_stroke_width, bar_class, milestone_class,
-                                        #   progress_complete_class, status_cancelled_class,
-                                        #   today_marker_line_class, group_header_class, ...).
-                                        #   Full list in the module's @doc. Per-connector fields
-                                        #   override component defaults; component defaults
-                                        #   override internal fallbacks. Structural
-                                        #   cal-waterfall-* hook classes remain stable and are
-                                        #   always rendered; consumer classes stack onto them.
-                                        #
-                                        #   Out-of-range filtering: `partition_events_by_range/2`
-                                        #   drops events whose [start, end) doesn't overlap the
-                                        #   visible date_range (no row, no bar, no obstacle, no
-                                        #   connector references). Earlier/later counts are
-                                        #   surfaced via the edge indicators.
-                                        #
-                                        #   Built-in toolbar (opt-in via `show_header={true}`):
-                                        #   - Today button (default JS.dispatch lc:wf-scroll-today
-                                        #     consumed by WaterfallAutoScroll hook; override with
-                                        #     `on_scroll_today` for server-side handling)
-                                        #   - Prev/next nav buttons (fire `on_navigate` callback
-                                        #     with %{direction: "prev"|"next"} — consumer recomputes
-                                        #     date_range)
-                                        #   - Zoom switcher (fires `on_zoom_change` with the new
-                                        #     atom; restrict to a subset via `zooms` attr)
-                                        #   - `toolbar_start` / `toolbar_end` slots for consumer
-                                        #     additions (e.g., a Reset button)
-                                        #   - Independent toggles: `show_today_button`,
-                                        #     `show_navigation`, `show_zoom_switcher`
-                                        #
-                                        #   Edge indicators: sticky pills at scroll edges, "← N
-                                        #   earlier" / "N later →", showing counts of out-of-range
-                                        #   events. Clickable when consumer wires
-                                        #   `on_show_earlier` / `on_show_later`.
-                                        #
-                                        #   JS hook (opt-in via `enable_hooks={true}`):
-                                        #   `WaterfallAutoScroll` centers today marker
-                                        #   horizontally on mount (`auto_scroll_today={true}`,
-                                        #   default) and on `lc:wf-scroll-today` custom event.
-                                        #   Re-fires on LiveView updates so navigation/zoom changes
-                                        #   re-center.
 
       # --- Shared Rendering Primitives ---
       components/
@@ -457,7 +246,7 @@ phoenix_live_schedule/
         phoenix_live_schedule.js                # 8 JS hooks (see JS Hooks section)
         phoenix_live_schedule.css               # Optional CSS: urgency animations, drag states, prefers-reduced-motion
 
-  test/                                 # 24 test files, 264 tests
+  test/                                 # 24 test files, 284 tests
     phoenix_live_schedule_test.exs
     phoenix_live_schedule/
       event_test.exs
@@ -661,9 +450,9 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 
 | Attr | Default | Description |
 |------|---------|-------------|
-| `date` | nil | Anchor date for the view. If set, syncs internal date. |
+| `date` | nil | Anchor date. Initial value **and** controlled override: seeds the view on mount and re-syncs only when the parent actually changes it — a re-render passing the same value preserves the user's own month navigation (see "View/date sync" below). |
 | `today` | `Date.utc_today()` | Today's date for highlighting. Pass `nil` to disable. |
-| `view` | `:month` | Initial view mode |
+| `view` | `:month` | Initial view mode. Same initial-plus-controlled semantics as `date`. |
 | `views` | `[:month, :week, :day]` | Available view modes in switcher |
 | `show_header` | `true` | Show/hide the header toolbar |
 | `show_today_button` | `:auto` | `:auto` hides when today visible, `true` always, `false` never |
@@ -671,6 +460,24 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 | `marker_ticker` | `true` | Enable/disable marker cycling animation |
 | `marker_ticker_interval` | `3000` | Milliseconds between marker transitions |
 | `enable_hooks` | `false` | Attach JS hooks to container for drag interactions |
+
+### View/date sync (controlled vs uncontrolled)
+
+`:view` and `:date` are **initial-plus-controlled**, not "reset on every render."
+`update/2` tracks the last parent-provided value (`last_view_prop` / `last_date_prop`)
+and only writes `internal_view` / `internal_date` when the incoming prop **differs**
+from what the parent last sent. So:
+
+- **Uncontrolled (common):** pass `view` / `date` once for the starting position
+  and let the user navigate — routine parent re-renders (PubSub reloads, sibling
+  assign changes) that re-pass the same value will **not** clobber their navigation.
+- **Controlled:** change the `view` / `date` assign and the component follows.
+- The component's own nav events (`lc_navigate` / `lc_today` / `lc_view_change`)
+  update `internal_*` directly; they don't touch `last_*_prop`.
+
+(Edge case: a parent can't force a re-sync to a value equal to the one it last sent —
+change the value, or remount via a new `id`. This is the standard controlled-input
+tradeoff and is what keeps user navigation from being discarded.)
 
 ## CalendarComponent Events
 
@@ -743,11 +550,11 @@ App JS setup: `app/assets/js/app.js` imports `phoenix_live_schedule.js` at `../.
 
 ### Must fix before release
 
-1. **Multi-day bar slot alignment** — When day 1 has events A,B and day 2 has only B, event B may shift up on day 2 because spacer divs were removed for cleaner DOM. The slot assignment in `compute_week_slots` computes correct indices but `multiday_bars_for_day` filters out spacers. Need to re-add empty placeholder divs (same height, no color) to maintain visual alignment across days.
+1. ~~**Multi-day bar slot alignment**~~ — **FIXED.** `multiday_bars_for_day` now keeps `{:spacer, idx}` placeholders for empty leading/interior slots (dropping only trailing ones) and the month template renders them as empty `cal-multiday-spacer` divs (`h-3.5`), so a multi-day bar keeps the same vertical row across every day it spans. Regression tests in `month_grid_test.exs` ("multi-day event slot alignment").
 
-2. **Week view vs month view spanning inconsistency** — Week view uses CSS `grid-column: N / span M` for all-day spanning bars. Month view uses per-cell full-width bars with slot assignment. These two approaches should ideally be unified for consistency. The month view approach (per-cell) is more robust for wrapping.
+2. ~~**Install task needs JS integration**~~ — **FIXED.** `mix phoenix_live_schedule.install` now finds `app.js`, adds the hook import, and spreads `...window.PhoenixLiveScheduleHooks` into a single `hooks: { … }` literal (falling back to printed instructions otherwise). `--js-path` override added; idempotent via the `// PhoenixLiveSchedule JS hooks` marker.
 
-3. **Install task needs JS integration** — Currently only handles CSS. Should also add JS import and hook registration to consumer's app.js, or at minimum make instructions clearer.
+3. **Week view vs month view spanning consistency** *(deferred — not a visible bug)* — Week all-day bars use CSS `grid-column: N / span M`; month uses per-cell slot bars. Both render correctly; this is an internal-consistency refactor (unify week onto the more-wrap-robust per-cell approach), not a broken behavior. Best done during the projects integration where it can be browser-verified, since rewriting a working component carries regression risk. (A separate latent issue worth checking then: overlapping multi-day all-day events in week view share one implicit grid row and can visually collide.)
 
 ### Should do before release
 
@@ -763,51 +570,11 @@ App JS setup: `app/assets/js/app.js` imports `phoenix_live_schedule.js` at `../.
 
 ### Nice to have
 
-**Per-connector `bus_attach_pos` override** — Currently the smart attach mode (`bus_attach_mode={:smart}`, default) decides each arrow's bar-edge attach y from the OTHER end's row position (out_up / out_down / in_above / in_below). Component-level (`bus_attach_mode`, `bus_attach_outer_pct`, `bus_attach_inner_pct`) and per-task (`extra.bus_attach_mode`) overrides exist. A natural extension would be a per-connector `:bus_attach_pos` field accepting `:top | :bottom | :center | :upper_middle | :lower_middle` (or a numeric `0..100` percentage) so a single arrow can be pinned to a specific position regardless of the smart rule. Useful when the consumer wants one specific connector to ride the bottom of a bar even though it'd normally smart-route to the top, e.g. to deliberately group it with a sibling. Skipped from Phase 1 to keep the override surface small; add when someone hits a concrete need.
-
-**[Phase 2] Waterfall virtualized / windowed rendering** — Current Waterfall renders every in-range event's row + bar up-front. Fine for hundreds of events; breaks down past thousands. The goal is to scale to millions with bounded DOM and bounded per-render work. Aspirational — Phase 1 (built-in toolbar, auto-scroll-to-today, edge indicators, out-of-range filtering) already ships the UX affordances that make it unnecessary for typical projects. Design notes:
-
-- **Not infinite scroll** — time is bidirectional (scroll both ways from wherever you are) and events span ranges (one that starts off-screen-left but ends on-screen must still render partially). It's a 2D windowing problem, not append-only pagination.
-- **Data source** — reuse the existing `PhoenixLiveSchedule.Store.EventStore` behaviour: consumers implement `list_events/1` filtered by date range + resource, and pass that as a callback instead of the full `events` list. The component calls it with the current viewport range.
-- **Scroll reporting** — new JS hook (`WaterfallViewportReporter`) throttled to ~100ms, pushes `{scroll_left, client_width}` to the LiveComponent, which maps to a date range and re-queries `list_events/1`.
-- **Vertical virtualization** — orthogonal. Row-level: only render rows intersecting the vertical viewport. Harder than horizontal because row height is fixed (simpler math) but connector arrows cross unrendered rows. Probably use `LiveView.stream` for rows with `phx-viewport-top` / `phx-viewport-bottom` anchors.
-- **Connector edge markers** — arrows that connect an on-screen event to an off-screen one render as short stems ending in an edge marker ("→ 3 deps out of view"). Click to navigate / extend range. Requires extending `compute_connector_paths` to handle one-sided paths.
-- **Topo sort caveat** — current `auto_place_group` needs the full connector graph to minimize crossings. For millions of events this argues for loading event IDs + connectors cheaply up-front (just strings, no event structs) and lazy-loading the full `Event` data only for visible rows. Separate "layout pass" from "render pass."
-- **Obstacle map** — `compute_bar_obstacles` is O(connectors × bars). At million-event scale this becomes the bottleneck even for connectors that don't need collision avoidance. Needs a spatial index (interval tree on row × date range) to query only bars in the arrow's y-span.
-- **Wrap not rewrite** — the function component stays; wrap it in a LiveComponent `PhoenixLiveSchedule.Views.WaterfallLive` that owns the viewport state and calls the function component with a windowed events list. Consumers pick the wrapper or the raw function component based on scale.
-
 9. **Event overlap layout in resource/timeline views** — `OverlapLayout` is used in week/day/N-day views but not in resource_view or timeline. Events in the same resource at the same time would stack rather than render side-by-side.
 
 10. **Print styles** — No CSS for printing calendar views.
 
 11. **Recurring event visual indicator** — No built-in icon/badge for recurring event instances.
-
-12. **Percentage-based dependencies in Waterfall** — Extend connectors to anchor at a percentage of a bar's duration, not just `start`/`end`. Two primitives to support:
-
-    a. **Partial-prerequisite start**: "B can start when A hits 30%". One connector, shifted source anchor — `%{from: a, to: b, from_pct: 30}`.
-    b. **Split-progress gate**: "B runs to 50%, pauses, resumes when A finishes". B becomes a segmented bar with two deps — one nominal, one gated. `%{from: a, to: b, from_pct: 100, to_pct: 50}`.
-
-    **Data model (recommended)**: collapse `type` into an anchor pair —
-    ```elixir
-    %{from: id, to: id, from_anchor: {:pct, 30}, to_anchor: {:start}}
-    # :fs is sugar for {end, start}; :ss for {start, start}; etc.
-    ```
-    `endpoints_for/5` already computes pixel anchors per type; add a `{:pct, N}` case that does `start_px + (end_px - start_px) * N / 100`. Routing (3-seg / detour / collision / smart-placement) doesn't change — only the anchor x shifts.
-
-    **Visual handling of mid-bar anchors** (pick one or offer as an attr):
-    - Anchor markers on the bar (small tick at the pct point) — least disruptive, arrow still enters from the side.
-    - Top/bottom emergence — arrow leaves/arrives from the bar's top edge at the pct x. Changes the shape family.
-    - Bar segmenting — split the bar at the gate; arrow lands on the segment boundary. Most expressive, biggest refactor (affects `bar_geometry/3`, progress fill).
-
-    **Interactions to think through**:
-    - `extra.progress_pct` — if `progress_pct < from_pct`, the gate is unmet. Could render dashed/dimmed until threshold crossed.
-    - Topo sort — current `auto_place_group` treats any `from→to` as "from strictly before to". Percent gates break that; need pct-aware topo.
-    - `conflict?/2` — still `x2 < x1` but with shifted anchors. A pct arrow crossing back in time is still an invalid schedule.
-
-    **Suggested phasing**:
-    - Phase 1: `from_pct` / `to_pct` on connector + shifted endpoints + anchor markers on the bar. No bar splitting, no progress interaction.
-    - Phase 2: progress-unmet styling when `from_event.progress_pct < from_pct`.
-    - Phase 3: bar segmenting for split-progress gates — new `segments` field on Event, rework `bar_geometry`, multiple progress fills per segment.
 
 ### Known gotchas to document
 
@@ -826,7 +593,7 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`.
 
 ## Testing
 
-- **307 tests, 0 failures**
+- **284 tests, 0 failures**
 - Unit tests for all structs, utilities, constraints
 - Component rendering tests for all views and primitives (using `rendered_to_string`)
 - Defensive error handling tests (Safe module)

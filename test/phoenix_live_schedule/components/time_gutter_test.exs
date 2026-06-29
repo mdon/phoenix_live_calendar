@@ -34,7 +34,10 @@ defmodule PhoenixLiveSchedule.Components.TimeGutterTest do
       slots = [~T[09:00:00]]
       assigns = %{slots: slots}
 
-      html = render(~H"<.time_gutter slots={@slots} slot_height=\"4rem\" />")
+      html =
+        render(~H"""
+        <.time_gutter slots={@slots} slot_height="4rem" />
+        """)
 
       assert html =~ "height: 4rem"
     end
@@ -53,7 +56,10 @@ defmodule PhoenixLiveSchedule.Components.TimeGutterTest do
       slots = [~T[09:00:00]]
       assigns = %{slots: slots}
 
-      html = render(~H"<.time_gutter slots={@slots} class=\"my-gutter\" />")
+      html =
+        render(~H"""
+        <.time_gutter slots={@slots} class="my-gutter" />
+        """)
 
       assert html =~ "my-gutter"
     end

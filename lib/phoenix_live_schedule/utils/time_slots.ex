@@ -204,22 +204,13 @@ defmodule PhoenixLiveSchedule.Utils.TimeSlots do
     DateTime.from_naive!(ndt, "Etc/UTC")
   end
 
-  defp compare_dt(%DateTime{} = a, %DateTime{} = b), do: DateTime.compare(a, b)
-  defp compare_dt(%NaiveDateTime{} = a, %DateTime{} = b), do: compare_dt(to_utc(a), b)
-  defp compare_dt(%DateTime{} = a, %NaiveDateTime{} = b), do: compare_dt(a, to_utc(b))
+  # Compare two date/time values of any type by normalizing both to UTC.
+  # Callers may pass Date, NaiveDateTime, or DateTime in either position.
+  defp compare_dt(a, b), do: DateTime.compare(to_dt(a), to_dt(b))
 
-  defp compare_dt(%NaiveDateTime{} = a, %NaiveDateTime{} = b),
-    do: NaiveDateTime.compare(a, b)
-
-  defp compare_dt(%Date{} = a, b), do: compare_dt(to_utc_start(a), b)
-  defp compare_dt(a, %Date{} = b), do: compare_dt(a, to_utc_start(b))
-
-  defp to_utc(%NaiveDateTime{} = ndt), do: DateTime.from_naive!(ndt, "Etc/UTC")
-
-  defp to_utc_start(%Date{} = d) do
-    {:ok, ndt} = NaiveDateTime.new(d, ~T[00:00:00])
-    DateTime.from_naive!(ndt, "Etc/UTC")
-  end
+  defp to_dt(%DateTime{} = dt), do: dt
+  defp to_dt(%NaiveDateTime{} = ndt), do: DateTime.from_naive!(ndt, "Etc/UTC")
+  defp to_dt(%Date{} = d), do: DateTime.from_naive!(NaiveDateTime.new!(d, ~T[00:00:00]), "Etc/UTC")
 
   defp time_to_seconds(%Time{hour: h, minute: m, second: s}), do: h * 3600 + m * 60 + s
 

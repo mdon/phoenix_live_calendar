@@ -87,7 +87,11 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
     {:ok,
      socket
      |> assign_new(:internal_date, fn -> Date.utc_today() end)
-     |> assign_new(:internal_view, fn -> :month end)}
+     |> assign_new(:internal_view, fn -> :month end)
+     # Last parent-provided :date / :view, tracked so we can tell an actual
+     # parent-driven change apart from a routine re-render passing the same value.
+     |> assign_new(:last_date_prop, fn -> nil end)
+     |> assign_new(:last_view_prop, fn -> nil end)}
   end
 
   # -- Update --
@@ -107,21 +111,37 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
     {:ok, socket}
   end
 
-  defp maybe_sync_date(socket, assigns) do
-    if Map.has_key?(assigns, :date) and assigns.date != nil do
-      assign(socket, :internal_date, assigns.date)
+  # `:date` and `:view` act as the INITIAL anchor AND a controlled override:
+  # sync internal state on first mount and whenever the parent actually CHANGES
+  # the value, but ignore a re-render that passes the same value as last time —
+  # otherwise a routine parent re-render (a PubSub reload, a sibling assign
+  # change) would snap the calendar back, discarding the user's own navigation.
+  # `internal_date`/`internal_view` are owned by the component's nav events
+  # (lc_navigate / lc_today / lc_view_change); the `last_*_prop` assigns track
+  # only what the parent last sent so we can diff against it.
+  defp maybe_sync_date(socket, %{date: date}) when not is_nil(date) do
+    if date == socket.assigns[:last_date_prop] do
+      socket
     else
       socket
+      |> assign(:internal_date, date)
+      |> assign(:last_date_prop, date)
     end
   end
 
-  defp maybe_sync_view(socket, assigns) do
-    if Map.has_key?(assigns, :view) and assigns.view != nil do
-      assign(socket, :internal_view, assigns.view)
+  defp maybe_sync_date(socket, _assigns), do: socket
+
+  defp maybe_sync_view(socket, %{view: view}) when not is_nil(view) do
+    if view == socket.assigns[:last_view_prop] do
+      socket
     else
       socket
+      |> assign(:internal_view, view)
+      |> assign(:last_view_prop, view)
     end
   end
+
+  defp maybe_sync_view(socket, _assigns), do: socket
 
   # -- Render --
 
@@ -165,7 +185,13 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
         }
         translations={assigns[:translations] || %{}}
         dir={assigns[:dir] || :ltr}
-      />
+        help_label={assigns[:info_label] || "About"}
+      >
+        <%!-- Optional consumer-provided key/legend, surfaced as the toolbar's
+             info (ⓘ) disclosure. The calendar owns the icon; the consumer owns
+             the words (it knows what its events/markings mean). --%>
+        <:help :if={assigns[:info] not in [nil, []]}>{render_slot(assigns[:info])}</:help>
+      </Header.header>
 
       <div class="cal-view-container flex-1 overflow-auto">
         <.render_view
@@ -181,8 +207,10 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
           slot_duration={assigns[:slot_duration] || 30}
           slot_height={assigns[:slot_height] || "3rem"}
           max_events={assigns[:max_events] || 3}
+          max_multiday={assigns[:max_multiday]}
           show_week_numbers={assigns[:show_week_numbers] || false}
           show_weekends={assigns[:show_weekends] != false}
+          expand_cells={assigns[:expand_cells] || false}
           show_now_indicator={assigns[:show_now_indicator] != false}
           show_all_day_row={assigns[:show_all_day_row] != false}
           business_hours={assigns[:business_hours] || []}
@@ -214,6 +242,8 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
   attr :slot_duration, :integer, required: true
   attr :slot_height, :string, required: true
   attr :max_events, :integer, required: true
+  attr :max_multiday, :integer, default: nil
+  attr :expand_cells, :boolean, default: false
   attr :show_week_numbers, :boolean, required: true
   attr :show_weekends, :boolean, required: true
   attr :show_now_indicator, :boolean, required: true
@@ -240,6 +270,8 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
       max_events={@max_events}
       show_week_numbers={@show_week_numbers}
       show_weekends={@show_weekends}
+      max_multiday={assigns[:max_multiday]}
+      expand_cells={assigns[:expand_cells] || false}
       marker_ticker={assigns[:marker_ticker] != false}
       marker_ticker_interval={assigns[:marker_ticker_interval] || 3000}
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
@@ -517,7 +549,10 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
         end_time: end_time
       })
     else
-      _ -> Logger.warning("[PhoenixLiveSchedule] Invalid params in lc_range_select: #{inspect(params)}")
+      _ ->
+        Logger.warning(
+          "[PhoenixLiveSchedule] Invalid params in lc_range_select: #{inspect(params)}"
+        )
     end
 
     {:noreply, socket}
@@ -653,7 +688,10 @@ defmodule PhoenixLiveSchedule.CalendarComponent do
   defp safe_direction("next"), do: :next
 
   defp safe_direction(other) do
-    Logger.warning("[PhoenixLiveSchedule] Invalid direction: #{inspect(other)}, defaulting to :next")
+    Logger.warning(
+      "[PhoenixLiveSchedule] Invalid direction: #{inspect(other)}, defaulting to :next"
+    )
+
     :next
   end
 
