@@ -20,5 +20,5 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-phoenix_live_schedule-*.tar
+phoenix_live_calendar-*.tar
 

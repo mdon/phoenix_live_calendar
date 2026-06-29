@@ -1,4 +1,4 @@
-# PhoenixLiveSchedule
+# PhoenixLiveCalendar
 
 A comprehensive calendar and scheduling component library for Phoenix LiveView.
 
@@ -38,12 +38,12 @@ richer interaction; never depend on them for the page to look right.
 
 ## Installation
 
-Add `phoenix_live_schedule` to your dependencies:
+Add `phoenix_live_calendar` to your dependencies:
 
 ```elixir
 def deps do
   [
-    {:phoenix_live_schedule, "~> 0.1.0"}
+    {:phoenix_live_calendar, "~> 0.1.0"}
   ]
 end
 ```
@@ -51,7 +51,7 @@ end
 Add to your `assets/css/app.css` so Tailwind scans the component templates:
 
 ```css
-@source "../../deps/phoenix_live_schedule";
+@source "../../deps/phoenix_live_calendar";
 ```
 
 ### Optional: JS hooks
@@ -59,10 +59,10 @@ Add to your `assets/css/app.css` so Tailwind scans the component templates:
 For drag interactions, add to `assets/js/app.js`:
 
 ```javascript
-import "../../deps/phoenix_live_schedule/priv/static/assets/phoenix_live_schedule.js"
+import "../../deps/phoenix_live_calendar/priv/static/assets/phoenix_live_calendar.js"
 
 let liveSocket = new LiveSocket("/live", Socket, {
-  hooks: { ...window.PhoenixLiveScheduleHooks, ...Hooks }
+  hooks: { ...window.PhoenixLiveCalendarHooks, ...Hooks }
 })
 ```
 
@@ -70,20 +70,20 @@ let liveSocket = new LiveSocket("/live", Socket, {
 
 ```elixir
 # config/config.exs
-config :phoenix_live_schedule, repo: MyApp.Repo
+config :phoenix_live_calendar, repo: MyApp.Repo
 
 # Generate and run the migration
-mix ecto.gen.migration add_phoenix_live_schedule
+mix ecto.gen.migration add_phoenix_live_calendar
 ```
 
 Edit the migration:
 
 ```elixir
-defmodule MyApp.Repo.Migrations.AddPhoenixLiveSchedule do
+defmodule MyApp.Repo.Migrations.AddPhoenixLiveCalendar do
   use Ecto.Migration
 
-  def up, do: PhoenixLiveSchedule.Store.Ecto.Migrations.up(version: 1)
-  def down, do: PhoenixLiveSchedule.Store.Ecto.Migrations.down(version: 1)
+  def up, do: PhoenixLiveCalendar.Store.Ecto.Migrations.up(version: 1)
+  def down, do: PhoenixLiveCalendar.Store.Ecto.Migrations.down(version: 1)
 end
 ```
 
@@ -95,12 +95,12 @@ defmodule MyAppWeb.CalendarLive do
 
   def mount(_params, _session, socket) do
     events = [
-      PhoenixLiveSchedule.event("1", ~U[2026-04-01 09:00:00Z],
+      PhoenixLiveCalendar.event("1", ~U[2026-04-01 09:00:00Z],
         title: "Team Standup",
         end: ~U[2026-04-01 09:30:00Z],
         color: "bg-primary"
       ),
-      PhoenixLiveSchedule.event("2", ~D[2026-04-05],
+      PhoenixLiveCalendar.event("2", ~D[2026-04-05],
         title: "Company Holiday",
         all_day: true,
         color: "bg-success"
@@ -113,7 +113,7 @@ defmodule MyAppWeb.CalendarLive do
   def render(assigns) do
     ~H"""
     <.live_component
-      module={PhoenixLiveSchedule.CalendarComponent}
+      module={PhoenixLiveCalendar.CalendarComponent}
       id="my-calendar"
       events={@events}
       views={[:month, :week, :day, :agenda]}
@@ -170,13 +170,13 @@ end
 You can use any view component standalone without the LiveComponent wrapper:
 
 ```elixir
-<PhoenixLiveSchedule.Views.MonthGrid.month_grid
+<PhoenixLiveCalendar.Views.MonthGrid.month_grid
   date={~D[2026-04-01]}
   events={@events}
   on_date_click={JS.push("date_clicked")}
 />
 
-<PhoenixLiveSchedule.Views.Agenda.agenda
+<PhoenixLiveCalendar.Views.Agenda.agenda
   date={Date.utc_today()}
   events={@events}
   days={14}

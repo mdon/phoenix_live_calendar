@@ -1,13 +1,13 @@
-defmodule PhoenixLiveSchedule.MixProject do
+defmodule PhoenixLiveCalendar.MixProject do
   use Mix.Project
 
   @version "0.1.0"
   @description "A comprehensive calendar and scheduling component library for Phoenix LiveView"
-  @source_url "https://github.com/mdon/phoenix_live_schedule"
+  @source_url "https://github.com/mdon/phoenix_live_calendar"
 
   def project do
     [
-      app: :phoenix_live_schedule,
+      app: :phoenix_live_calendar,
       version: @version,
       description: @description,
       elixir: "~> 1.15",
@@ -23,7 +23,7 @@ defmodule PhoenixLiveSchedule.MixProject do
       # which is only exercisable against a real Postgres repo (kept out of the
       # default suite so the optional dep never forces a database on contributors).
       test_coverage: [summary: [threshold: 80]],
-      name: "PhoenixLiveSchedule",
+      name: "PhoenixLiveCalendar",
       source_url: @source_url
     ]
   end
@@ -57,7 +57,7 @@ defmodule PhoenixLiveSchedule.MixProject do
 
   defp package do
     [
-      name: "phoenix_live_schedule",
+      name: "phoenix_live_calendar",
       maintainers: ["mdon"],
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
@@ -67,53 +67,53 @@ defmodule PhoenixLiveSchedule.MixProject do
 
   defp docs do
     [
-      name: "PhoenixLiveSchedule",
+      name: "PhoenixLiveCalendar",
       source_ref: "v#{@version}",
       source_url: @source_url,
-      main: "PhoenixLiveSchedule",
+      main: "PhoenixLiveCalendar",
       extras: ["README.md", "CHANGELOG.md", "LICENSE"],
       groups_for_modules: [
         Views: [
-          PhoenixLiveSchedule.Views.MonthGrid,
-          PhoenixLiveSchedule.Views.WeekGrid,
-          PhoenixLiveSchedule.Views.DayView,
-          PhoenixLiveSchedule.Views.NDayView,
-          PhoenixLiveSchedule.Views.YearView,
-          PhoenixLiveSchedule.Views.Agenda,
-          PhoenixLiveSchedule.Views.Timeline,
-          PhoenixLiveSchedule.Views.ResourceView
+          PhoenixLiveCalendar.Views.MonthGrid,
+          PhoenixLiveCalendar.Views.WeekGrid,
+          PhoenixLiveCalendar.Views.DayView,
+          PhoenixLiveCalendar.Views.NDayView,
+          PhoenixLiveCalendar.Views.YearView,
+          PhoenixLiveCalendar.Views.Agenda,
+          PhoenixLiveCalendar.Views.Timeline,
+          PhoenixLiveCalendar.Views.ResourceView
         ],
         Components: [
-          PhoenixLiveSchedule.CalendarComponent,
-          PhoenixLiveSchedule.Components.EventItem,
-          PhoenixLiveSchedule.Components.EventPopover,
-          PhoenixLiveSchedule.Components.Header,
-          PhoenixLiveSchedule.Components.MiniCalendar,
-          PhoenixLiveSchedule.Components.TimeGutter
+          PhoenixLiveCalendar.CalendarComponent,
+          PhoenixLiveCalendar.Components.EventItem,
+          PhoenixLiveCalendar.Components.EventPopover,
+          PhoenixLiveCalendar.Components.Header,
+          PhoenixLiveCalendar.Components.MiniCalendar,
+          PhoenixLiveCalendar.Components.TimeGutter
         ],
         "Data structures": [
-          PhoenixLiveSchedule.Event,
-          PhoenixLiveSchedule.Resource,
-          PhoenixLiveSchedule.Availability,
-          PhoenixLiveSchedule.BookingConfig,
-          PhoenixLiveSchedule.DayMarker,
-          PhoenixLiveSchedule.Eventable
+          PhoenixLiveCalendar.Event,
+          PhoenixLiveCalendar.Resource,
+          PhoenixLiveCalendar.Availability,
+          PhoenixLiveCalendar.BookingConfig,
+          PhoenixLiveCalendar.DayMarker,
+          PhoenixLiveCalendar.Eventable
         ],
         Persistence: [
-          PhoenixLiveSchedule.Store.EventStore,
-          PhoenixLiveSchedule.Store.Ecto.EventStoreEcto,
-          PhoenixLiveSchedule.Store.Ecto.EventSchema,
-          PhoenixLiveSchedule.Store.Ecto.Migrations,
-          PhoenixLiveSchedule.Store.Ecto.RepoHelper
+          PhoenixLiveCalendar.Store.EventStore,
+          PhoenixLiveCalendar.Store.Ecto.EventStoreEcto,
+          PhoenixLiveCalendar.Store.Ecto.EventSchema,
+          PhoenixLiveCalendar.Store.Ecto.Migrations,
+          PhoenixLiveCalendar.Store.Ecto.RepoHelper
         ],
         Utilities: [
-          PhoenixLiveSchedule.PubSub,
-          PhoenixLiveSchedule.Utils.DateHelpers,
-          PhoenixLiveSchedule.Utils.TimeSlots,
-          PhoenixLiveSchedule.Utils.OverlapLayout,
-          PhoenixLiveSchedule.Utils.Constraints,
-          PhoenixLiveSchedule.Utils.I18n,
-          PhoenixLiveSchedule.Utils.Telemetry
+          PhoenixLiveCalendar.PubSub,
+          PhoenixLiveCalendar.Utils.DateHelpers,
+          PhoenixLiveCalendar.Utils.TimeSlots,
+          PhoenixLiveCalendar.Utils.OverlapLayout,
+          PhoenixLiveCalendar.Utils.Constraints,
+          PhoenixLiveCalendar.Utils.I18n,
+          PhoenixLiveCalendar.Utils.Telemetry
         ]
       ]
     ]
