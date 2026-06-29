@@ -144,7 +144,7 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
       <%!-- Day headers --%>
       <div
         class="cal-month-header grid border-b-2 border-base-content/15 bg-base-content/5"
-        style={"grid-template-columns: #{if @show_week_numbers, do: "2rem ", else: ""}repeat(#{@days_per_week}, 1fr)"}
+        style={"grid-template-columns: #{if @show_week_numbers, do: "2rem ", else: ""}repeat(#{@days_per_week}, minmax(0, 1fr))"}
       >
         <div :if={@show_week_numbers} class="text-sm text-base-content text-center py-2">
           W
@@ -164,7 +164,7 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
       <div
         :for={{week, slot_data} <- @weeks}
         class="cal-week-row grid border-b border-base-content/8"
-        style={"grid-template-columns: #{if @show_week_numbers, do: "2rem ", else: ""}repeat(#{@days_per_week}, 1fr)"}
+        style={"grid-template-columns: #{if @show_week_numbers, do: "2rem ", else: ""}repeat(#{@days_per_week}, minmax(0, 1fr))"}
         role="row"
       >
         <%!-- Week number --%>
@@ -179,7 +179,7 @@ defmodule PhoenixLiveSchedule.Views.MonthGrid do
         <div
           :for={day <- week}
           class={[
-            "cal-day-cell border-r border-base-content/5 relative",
+            "cal-day-cell min-w-0 border-r border-base-content/5 relative",
             if(@expand_cells,
               do: "min-h-24 md:min-h-28 lg:min-h-32",
               else: "min-h-24 h-24 md:h-28 lg:h-32 overflow-hidden"

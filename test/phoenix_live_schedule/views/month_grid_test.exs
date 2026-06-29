@@ -34,6 +34,17 @@ defmodule PhoenixLiveSchedule.Views.MonthGridTest do
       assert html =~ "cal-day-cell"
     end
 
+    test "columns use minmax(0, 1fr) so a wide cell can't make a row overflow" do
+      assigns = %{date: ~D[2026-04-01]}
+
+      html = render(~H"<.month_grid date={@date} />")
+
+      # Plain `1fr` is `minmax(auto, 1fr)`: nowrap content wider than 1/7 would
+      # blow the row past the viewport on phones. minmax(0, 1fr) lets it shrink.
+      assert html =~ "minmax(0, 1fr)"
+      refute html =~ "repeat(7, 1fr)"
+    end
+
     test "renders day headers" do
       assigns = %{date: ~D[2026-04-01]}
 
