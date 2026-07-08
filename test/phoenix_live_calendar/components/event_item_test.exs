@@ -21,6 +21,19 @@ defmodule PhoenixLiveCalendar.Components.EventItemTest do
       assert html =~ ~s(data-event-id="1")
     end
 
+    test "id_suffix disambiguates the DOM id" do
+      event = %Event{id: "ev1", start: ~U[2026-04-01 10:00:00Z], title: "Meeting"}
+      assigns = %{event: event}
+
+      # without a suffix the id is the plain event id (back-compat)
+      html = render(~H"<.event_item event={@event} />")
+      assert html =~ ~s(id="cal-event-ev1")
+
+      # with a suffix (per-date/per-resource loops) the id is unique per cell
+      html = render(~H"<.event_item event={@event} id_suffix=\"2026-04-01\" />")
+      assert html =~ ~s(id="cal-event-ev1-2026-04-01")
+    end
+
     test "renders no-title fallback" do
       event = %Event{id: "1", start: ~U[2026-04-01 10:00:00Z]}
       assigns = %{event: event}

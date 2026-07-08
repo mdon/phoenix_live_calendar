@@ -253,6 +253,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 <% else %>
                   <EventItem.event_item
                     event={event}
+                    id_suffix={Date.to_iso8601(date)}
                     on_click={@on_event_click}
                     time_format={@time_format}
                     class="h-full text-xs bg-primary/80 text-primary-content border-l-2 border-primary"

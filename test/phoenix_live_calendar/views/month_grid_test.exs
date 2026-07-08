@@ -192,6 +192,27 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
     end
   end
 
+  describe "duplicate DOM id regression (midnight-crossing timed events)" do
+    test "a timed event crossing midnight gets a unique id per day cell" do
+      # occupies April 1 (23:30 start) AND April 2 (00:30 end)
+      event = %Event{
+        id: "night",
+        start: ~U[2026-04-01 23:30:00Z],
+        end: ~U[2026-04-02 00:30:00Z],
+        title: "Night shift handover"
+      }
+
+      assigns = %{date: ~D[2026-04-01], events: [event]}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      # rendered in both day cells, each with a date-suffixed id
+      assert html =~ ~s(id="cal-event-night-2026-04-01")
+      assert html =~ ~s(id="cal-event-night-2026-04-02")
+      # the ambiguous bare id must not appear at all
+      refute html =~ ~s(id="cal-event-night")
+    end
+  end
+
   describe "multi-day event slot alignment" do
     # A and B overlap on 04-07, so A takes slot 0 and B takes slot 1. On 04-08
     # A has ended, leaving slot 0 empty under B — that gap must render a spacer

@@ -48,12 +48,23 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   attr :class, :string, default: ""
   attr :time_format, :atom, default: :h24
 
+  attr :id_suffix, :any,
+    default: nil,
+    doc: """
+    Disambiguates the DOM id when the SAME event renders more than once in
+    one view — a midnight-crossing timed event occupies two month/week day
+    cells, and a multi-resource event renders once per resource column.
+    Callers rendering events inside a per-date/per-resource loop pass the
+    loop key here; without it LiveView reports duplicate DOM ids and
+    morphdom patching misbehaves.
+    """
+
   slot :inner_block
 
   def event_item(assigns) do
     ~H"""
     <div
-      id={"cal-event-#{@event.id}"}
+      id={event_dom_id(@event, @id_suffix)}
       class={[
         "cal-event",
         event_base_class(@event),
@@ -179,6 +190,9 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   defp border_color_class(%Event{border_color: color}), do: "border-l-4 #{color}"
 
   # -- Base display class --
+
+  defp event_dom_id(event, nil), do: "cal-event-#{event.id}"
+  defp event_dom_id(event, suffix), do: "cal-event-#{event.id}-#{suffix}"
 
   defp event_base_class(%Event{} = event) do
     cond do

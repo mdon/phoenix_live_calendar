@@ -144,6 +144,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
                 <% else %>
                   <EventItem.event_item
                     event={event}
+                    id_suffix={resource.id}
                     on_click={@on_event_click}
                     class="h-full text-xs bg-primary/80 text-primary-content rounded px-1"
                   />

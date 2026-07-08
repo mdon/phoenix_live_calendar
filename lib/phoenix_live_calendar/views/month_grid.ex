@@ -268,6 +268,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
               <% else %>
                 <EventItem.event_item
                   event={event}
+                  id_suffix={Date.to_iso8601(day)}
                   on_click={@on_event_click}
                   compact={true}
                   time_format={@time_format}
