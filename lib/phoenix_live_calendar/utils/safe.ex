@@ -124,7 +124,10 @@ defmodule PhoenixLiveCalendar.Utils.Safe do
   "bg-warning" -> "text-warning-content", "bg-primary/80" -> "text-primary-content", etc.
   Falls back to "text-base-content" for unknown patterns, "text-primary-content" for nil.
   """
-  def infer_text_color(nil), do: "text-primary-content"
+  # No color to infer from — assume the surface underneath is base-colored.
+  # (Previously "text-primary-content", which paired with EventItem's old
+  # missing default background to render invisible white-on-cell text.)
+  def infer_text_color(nil), do: "text-base-content"
 
   def infer_text_color(bg_class) when is_binary(bg_class) do
     case Regex.run(~r/bg-(primary|secondary|accent|neutral|info|success|warning|error)/, bg_class) do

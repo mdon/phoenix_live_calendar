@@ -146,7 +146,8 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
                     event={event}
                     id_suffix={resource.id}
                     on_click={@on_event_click}
-                    class="h-full text-xs bg-primary/80 text-primary-content rounded px-1"
+                    default_color="bg-primary/80"
+                    class="h-full text-xs rounded px-1"
                   />
                 <% end %>
               </div>

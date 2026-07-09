@@ -21,6 +21,29 @@ defmodule PhoenixLiveCalendar.Components.EventItemTest do
       assert html =~ ~s(data-event-id="1")
     end
 
+    test "a color-less event gets the default background and matching text" do
+      # regression: previously rendered with NO background while the text
+      # inferred primary-content — invisible white-on-cell chips
+      event = %Event{id: "1", start: ~U[2026-04-01 10:00:00Z], title: "Plain"}
+      assigns = %{event: event}
+
+      html = render(~H"<.event_item event={@event} />")
+
+      assert html =~ "bg-primary"
+      assert html =~ "text-primary-content"
+    end
+
+    test "the event's own color always beats the default" do
+      event = %Event{id: "1", start: ~U[2026-04-01 10:00:00Z], color: "bg-warning"}
+      assigns = %{event: event}
+
+      html = render(~H"<.event_item event={@event} default_color=\"bg-primary/80\" />")
+
+      assert html =~ "bg-warning"
+      assert html =~ "text-warning-content"
+      refute html =~ "bg-primary/80"
+    end
+
     test "id_suffix disambiguates the DOM id" do
       event = %Event{id: "ev1", start: ~U[2026-04-01 10:00:00Z], title: "Meeting"}
       assigns = %{event: event}

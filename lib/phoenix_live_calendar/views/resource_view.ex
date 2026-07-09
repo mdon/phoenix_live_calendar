@@ -143,7 +143,8 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
                     id_suffix={resource.id}
                     on_click={@on_event_click}
                     time_format={@time_format}
-                    class="h-full text-xs bg-primary/80 text-primary-content border-l-2 border-primary"
+                    default_color="bg-primary/80"
+                    class="h-full text-xs border-l-2 border-primary"
                   />
                 <% end %>
               </div>

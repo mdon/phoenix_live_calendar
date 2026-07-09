@@ -48,6 +48,15 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   attr :class, :string, default: ""
   attr :time_format, :atom, default: :h24
 
+  attr :default_color, :string,
+    default: "bg-primary",
+    doc: """
+    Background applied when the event has no `color` of its own, so a
+    color-less event is always legible (previously it rendered with NO
+    background while `infer_text_color(nil)` assumed a primary one —
+    white text on the naked cell). The event's own `color` always wins.
+    """
+
   attr :id_suffix, :any,
     default: nil,
     doc: """
@@ -71,8 +80,8 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
         status_class(@event),
         not @compact && urgency_class(@event),
         not @compact && priority_class(@event),
-        @event.color,
-        @event.text_color || Safe.infer_text_color(@event.color),
+        @event.color || @default_color,
+        @event.text_color || Safe.infer_text_color(@event.color || @default_color),
         @event.class,
         not @compact && border_color_class(@event),
         @on_click && "cursor-pointer hover:brightness-95",
