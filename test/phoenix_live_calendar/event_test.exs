@@ -81,6 +81,33 @@ defmodule PhoenixLiveCalendar.EventTest do
     end
   end
 
+  describe "spans_multiple_dates?/1" do
+    test "same-day timed event: false" do
+      e = %Event{id: "1", start: ~U[2026-04-06 09:00:00Z], end: ~U[2026-04-06 15:00:00Z]}
+      refute Event.spans_multiple_dates?(e)
+    end
+
+    test "overnight timed event (10pm→2am): true — it touches two dates" do
+      e = %Event{id: "1", start: ~U[2026-04-06 22:00:00Z], end: ~U[2026-04-07 02:00:00Z]}
+      assert Event.spans_multiple_dates?(e)
+    end
+
+    test "timed event ending exactly at midnight: false (only the start day)" do
+      e = %Event{id: "1", start: ~U[2026-04-06 09:00:00Z], end: ~U[2026-04-07 00:00:00Z]}
+      refute Event.spans_multiple_dates?(e)
+    end
+
+    test "single-day all-day event (exclusive end): false" do
+      e = %Event{id: "1", start: ~D[2026-04-06], end: ~D[2026-04-07], all_day: true}
+      refute Event.spans_multiple_dates?(e)
+    end
+
+    test "multi-day all-day event: true" do
+      e = %Event{id: "1", start: ~D[2026-04-06], end: ~D[2026-04-09], all_day: true}
+      assert Event.spans_multiple_dates?(e)
+    end
+  end
+
   describe "last_date/1" do
     test "all-day event: end is exclusive, so last day is end - 1" do
       event = %Event{id: "1", start: ~D[2026-04-10], end: ~D[2026-04-17], all_day: true}

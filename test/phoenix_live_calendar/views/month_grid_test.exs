@@ -192,9 +192,12 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
     end
   end
 
-  describe "duplicate DOM id regression (midnight-crossing timed events)" do
-    test "a timed event crossing midnight gets a unique id per day cell" do
-      # occupies April 1 (23:30 start) AND April 2 (00:30 end)
+  describe "midnight-crossing timed events" do
+    test "a timed event crossing midnight renders as one bar (no duplicate chip ids)" do
+      # occupies April 1 (23:30 start) AND April 2 (00:30 end). It spans two
+      # dates, so it's now a single continuous bar rather than a per-cell
+      # chip in each day — which also sidesteps the old duplicate-DOM-id
+      # problem, since bars carry no per-cell id.
       event = %Event{
         id: "night",
         start: ~U[2026-04-01 23:30:00Z],
@@ -205,11 +208,10 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       assigns = %{date: ~D[2026-04-01], events: [event]}
       html = render(~H"<.month_grid date={@date} events={@events} />")
 
-      # rendered in both day cells, each with a date-suffixed id
-      assert html =~ ~s(id="cal-event-night-2026-04-01")
-      assert html =~ ~s(id="cal-event-night-2026-04-02")
-      # the ambiguous bare id must not appear at all
-      refute html =~ ~s(id="cal-event-night")
+      assert html =~ "cal-multiday-bar"
+      assert html =~ "Night shift handover"
+      # not per-cell chips → no cal-event id (bare or suffixed) at all
+      refute html =~ ~s(id="cal-event-night)
     end
   end
 
@@ -267,8 +269,9 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       refute html =~ "cal-event"
     end
 
-    test "an overnight timed event (crosses midnight, one night) stays a chip" do
-      # diff is exactly 1 day → NOT multi-day → per-day chips, not a bar
+    test "an overnight timed event (10pm→2am) renders as one bar across both days" do
+      # it touches two dates, so on the month view it reads as one event —
+      # not a separate chip on each day
       events = [
         %Event{
           id: "night",
@@ -282,7 +285,26 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       assigns = %{date: ~D[2026-04-01], events: events}
       html = render(~H"<.month_grid date={@date} events={@events} />")
 
+      assert html =~ "cal-multiday-bar"
       assert html =~ "Late shift"
+      refute html =~ "cal-event"
+    end
+
+    test "a same-day timed event stays a chip, not a bar" do
+      events = [
+        %Event{
+          id: "mtg",
+          start: ~U[2026-04-06 09:00:00Z],
+          end: ~U[2026-04-06 10:00:00Z],
+          title: "Standup",
+          all_day: false
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "Standup"
       refute html =~ "cal-multiday-bar"
     end
 

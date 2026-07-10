@@ -257,6 +257,22 @@ defmodule PhoenixLiveCalendar.Event do
   end
 
   @doc """
+  Returns whether this event occupies more than one calendar DATE — i.e. its
+  first and last occupied days differ.
+
+  This is the right test for "render as one continuous bar across day cells"
+  on a date grid: it is true for a multi-day all-day event AND for a timed
+  event that runs past midnight into another date (a 10pm→2am event is on two
+  dates), but false for a same-day event or one that ends exactly at midnight
+  (which occupies only the starting day). Unlike `multi_day?/1`, it doesn't
+  care how many hours the event lasts — only which dates it touches.
+  """
+  @spec spans_multiple_dates?(t()) :: boolean()
+  def spans_multiple_dates?(%__MODULE__{} = event) do
+    Date.compare(last_date(event), to_date(event.start)) == :gt
+  end
+
+  @doc """
   Returns whether this event overlaps with the given date range `[range_start, range_end)`.
   """
   @spec overlaps_range?(t(), Date.t() | DateTime.t(), Date.t() | DateTime.t()) :: boolean()

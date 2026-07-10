@@ -89,13 +89,13 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     weeks = DateHelpers.group_by_weeks(dates)
     days_per_week = if assigns.show_weekends, do: 7, else: 5
 
-    # Split events: any MULTI-DAY event (all-day OR timed) renders as one
-    # continuous bar; everything else (single-day, and overnight events that
-    # merely cross midnight — multi_day? is diff > 1) renders as per-day
-    # chips. Without this, a multi-day timed event showed as a separate chip
-    # in every day it spanned instead of a single bar.
+    # Split events: anything occupying more than one calendar DATE renders as
+    # one continuous bar (a multi-day all-day event, OR a timed event that
+    # runs past midnight — a 10pm→2am event is on two dates); same-day events
+    # render as per-day chips. Based on dates, not hours: the month view
+    # doesn't care what time an event is, only which days it touches.
     {multi_day_events, other_events} =
-      Enum.split_with(assigns.events, &Event.multi_day?/1)
+      Enum.split_with(assigns.events, &Event.spans_multiple_dates?/1)
 
     # Group non-multi-day events by date (includes single-day all-day + timed)
     events_by_date = DateHelpers.group_events_by_date(other_events, dates)
