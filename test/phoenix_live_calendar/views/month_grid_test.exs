@@ -244,6 +244,48 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       refute html =~ "cal-multiday-spacer"
     end
 
+    test "a multi-day TIMED event renders as one bar, not a chip per day" do
+      # a normal (not all-day) event spanning several days — was showing as a
+      # separate event in every day cell instead of one continuous bar
+      events = [
+        %Event{
+          id: "trip",
+          start: ~U[2026-04-06 09:00:00Z],
+          end: ~U[2026-04-13 17:00:00Z],
+          title: "Conference trip",
+          all_day: false
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      # rendered as a continuous bar, NOT per-day event chips (the only
+      # event here, so no cal-event chip should appear at all)
+      assert html =~ "cal-multiday-bar"
+      assert html =~ "Conference trip"
+      refute html =~ "cal-event"
+    end
+
+    test "an overnight timed event (crosses midnight, one night) stays a chip" do
+      # diff is exactly 1 day → NOT multi-day → per-day chips, not a bar
+      events = [
+        %Event{
+          id: "night",
+          start: ~U[2026-04-06 22:00:00Z],
+          end: ~U[2026-04-07 02:00:00Z],
+          title: "Late shift",
+          all_day: false
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "Late shift"
+      refute html =~ "cal-multiday-bar"
+    end
+
     test "labels a bar that started before the visible month (at each week start)" do
       # Starts 2026-03-20, well before the April grid, so its true start day is
       # never in view — the label must still appear via the week-start rule.
