@@ -517,6 +517,98 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
     end
   end
 
+  describe "respect_hours" do
+    # 10th 14:00 -> 12th 10:00 timed bar
+    defp hours_event do
+      %Event{
+        id: "trip",
+        start: ~U[2026-04-10 14:00:00Z],
+        end: ~U[2026-04-12 10:00:00Z],
+        title: "Trip",
+        all_day: false
+      }
+    end
+
+    test "off by default: bars span full cells (no hour geometry)" do
+      assigns = %{date: ~D[2026-04-01], events: [hours_event()]}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      assert html =~ "cal-multiday-bar"
+      refute html =~ "margin-left:"
+      refute html =~ "width:"
+    end
+
+    test "on: multi-day bar boundary days trim to the hours occupied" do
+      assigns = %{date: ~D[2026-04-01], events: [hours_event()]}
+      html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
+
+      # start day (14:00): offset 14/24 ≈ 58.33%, width the remaining 41.67%
+      assert html =~ "margin-left: 58.33%; width: 41.67%"
+      # last day (ends 10:00): from the left, 10/24 ≈ 41.67% wide
+      assert html =~ "margin-left: 0.0%; width: 41.67%"
+    end
+
+    test "on: a multi-day ALL-DAY event still fills whole days (no hours)" do
+      events = [
+        %Event{id: "vac", start: ~D[2026-04-10], end: ~D[2026-04-13], title: "Vac", all_day: true}
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
+
+      assert html =~ "cal-multiday-bar"
+      refute html =~ "margin-left:"
+      refute html =~ "width:"
+    end
+
+    test "on: a single-day timed event becomes a bar positioned by its hours" do
+      events = [
+        %Event{
+          id: "mtg",
+          start: ~U[2026-04-06 09:00:00Z],
+          end: ~U[2026-04-06 10:30:00Z],
+          title: "Standup",
+          all_day: false
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
+
+      # 09:00 => 37.5% offset; 90 min => 6.25% wide
+      assert html =~ "cal-event-timed"
+      assert html =~ "margin-left: 37.5%; width: 6.25%"
+    end
+
+    test "on: a 5-minute event is floored to a 1-hour-wide bar so it stays visible" do
+      events = [
+        %Event{
+          id: "quick",
+          start: ~U[2026-04-06 09:00:00Z],
+          end: ~U[2026-04-06 09:05:00Z],
+          title: "Quick",
+          all_day: false
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
+
+      # 5 min ≈ 0.35% would be invisible → floored to 1 hour = 4.17%
+      assert html =~ "margin-left: 37.5%; width: 4.17%"
+    end
+
+    test "on: a single-day ALL-DAY event stays a full chip (no hours)" do
+      events = [%Event{id: "hol", start: ~D[2026-04-06], title: "Holiday", all_day: true}]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
+
+      assert html =~ "Holiday"
+      refute html =~ "margin-left:"
+    end
+  end
+
   describe "max_multiday" do
     test "nil (default) shows every multi-day bar with no overflow link" do
       assigns = %{date: ~D[2026-04-01], events: overlapping_bars()}

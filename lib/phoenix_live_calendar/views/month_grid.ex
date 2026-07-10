@@ -32,6 +32,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   - `max_events` — single-day events shown per cell before a "+N more" link (default `3`)
   - `max_multiday` — cap on multi-day bar rows per cell (default: no cap)
   - `expand_cells` — grow cells to fit all bars instead of clipping
+  - `respect_hours` — position timed events by the hours they occupy (1h min width) instead of full-day
   - `show_week_numbers` / `show_weekends` / `fixed_weeks` — layout toggles
   - `on_date_click` / `on_event_click` / `on_more_click` — JS commands or event names
   - `translations` / `time_format` / `dir` / `class` — presentation
@@ -53,6 +54,11 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     default: false,
     doc:
       "When true, day cells grow vertically to fit all their bars (min-height, no clipping) instead of a fixed height that clips overflow. Useful when every event must stay visible (e.g. project bars)."
+
+  attr :respect_hours, :boolean,
+    default: false,
+    doc:
+      "When true, TIMED events cover only the fraction of a day they actually occupy: a single-day event becomes a bar offset by its start-time and sized to its duration, while a multi-day bar's boundary days trim to their start/end hours (middle days stay full). Very short events are floored to a 1-hour width so they stay visible. All-day events always cover full days (no hours). Off by default — bars span whole cells edge to edge and single-day events render as chips."
 
   attr :show_week_numbers, :boolean, default: false
   attr :show_weekends, :boolean, default: true
@@ -247,7 +253,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                     phx-click={@on_event_click}
                     phx-value-event-id={event.id}
                     title={event.title}
-                    style={highlight_style(event, day)}
+                    style={bar_style(event, day, is_start, is_end, @respect_hours)}
                   >
                     <%!-- Label on the true start day AND at the start of each week
                          row, so a bar continuing from a previous week (or from
@@ -260,23 +266,45 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
               <% end %>
             <% end %>
 
-            <%!-- Single-day events: with margin for visual distinction --%>
-            <div
-              :for={event <- visible_single}
-              class="mx-1 mt-px"
-            >
-              <%= if @event != [] do %>
-                {render_slot(@event, event)}
-              <% else %>
-                <EventItem.event_item
-                  event={event}
-                  id_suffix={Date.to_iso8601(day)}
-                  on_click={@on_event_click}
-                  compact={true}
-                  time_format={@time_format}
-                />
+            <%!-- Single-day events. Normally full-width chips; in
+                 respect_hours mode a TIMED event becomes a bar positioned by
+                 its hours (min 1h wide). All-day events + a custom :event
+                 slot are unaffected — no hours to respect. --%>
+            <%= for event <- visible_single do %>
+              <%= cond do %>
+                <% @event != [] -> %>
+                  <div class="mx-1 mt-px">{render_slot(@event, event)}</div>
+                <% @respect_hours and not PhoenixLiveCalendar.Event.all_day?(event) -> %>
+                  <% {gl, gw} = bar_geometry(event, true, true) %>
+                  <div
+                    id={"cal-event-#{event.id}-#{Date.to_iso8601(day)}"}
+                    class={[
+                      "cal-event cal-event-timed h-3.5 mt-px text-[0.6rem] leading-tight font-medium truncate cursor-pointer px-1 rounded flex items-center",
+                      event.color || "bg-primary",
+                      event.text_color || Safe.infer_text_color(event.color),
+                      event.status == :cancelled && "opacity-50 line-through",
+                      event.class
+                    ]}
+                    style={"margin-left: #{pct(gl)}; width: #{pct(gw)}"}
+                    phx-click={@on_event_click}
+                    phx-value-event-id={event.id}
+                    title={event.title}
+                  >
+                    <span :if={event.icon} class="mr-0.5">{event.icon}</span>
+                    <span class="truncate">{event.title || "(No title)"}</span>
+                  </div>
+                <% true -> %>
+                  <div class="mx-1 mt-px">
+                    <EventItem.event_item
+                      event={event}
+                      id_suffix={Date.to_iso8601(day)}
+                      on_click={@on_event_click}
+                      compact={true}
+                      time_format={@time_format}
+                    />
+                  </div>
               <% end %>
-            </div>
+            <% end %>
 
             <button
               :if={overflow > 0}
@@ -375,6 +403,81 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   end
 
   defp highlight_style(_event, _day), do: nil
+
+  # Smallest fraction of a day a bar may occupy in respect_hours mode, so a
+  # very short event (e.g. 5 minutes) stays visible/clickable. One hour.
+  @min_bar_fraction 1.0 / 24.0
+
+  # Combined inline style for a MULTI-DAY bar segment: the highlight
+  # custom-properties plus, in respect_hours mode, a left offset + width so the
+  # segment only covers the fraction of its boundary day the event occupies.
+  defp bar_style(event, day, is_start, is_end, respect_hours) do
+    [highlight_style(event, day), geometry_style(event, is_start, is_end, respect_hours)]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join("; ")
+    |> case do
+      "" -> nil
+      style -> style
+    end
+  end
+
+  # `margin-left` + `width` positioning a bar to its real hour-span. Off (or an
+  # all-day event, which has no hours) → nil, so the bar stays full-width. The
+  # inline margin-left overrides the fixed ml-1 cap margin.
+  defp geometry_style(_event, _is_start, _is_end, false), do: nil
+
+  defp geometry_style(%Event{start: %Date{}}, _is_start, _is_end, true), do: nil
+
+  defp geometry_style(event, is_start, is_end, true) do
+    {left, width} = bar_geometry(event, is_start, is_end)
+
+    if left <= 0.0 and width >= 1.0 do
+      # a full-width middle day — no need for inline geometry
+      nil
+    else
+      "margin-left: #{pct(left)}; width: #{pct(width)}"
+    end
+  end
+
+  # {left_fraction, width_fraction} for an event's bar on one day. A boundary
+  # day is trimmed to the hours the event occupies; a middle day is full
+  # (`{0.0, 1.0}`). A single-day event passes is_start=is_end=true. Width is
+  # floored at @min_bar_fraction and nudged left to stay inside the cell.
+  defp bar_geometry(event, is_start, is_end) do
+    left = if is_start, do: start_day_fraction(event), else: 0.0
+    right = if is_end, do: end_day_fraction(event), else: 1.0
+    width = max(right - left, @min_bar_fraction)
+    left = left |> min(1.0 - width) |> max(0.0)
+    {left, width}
+  end
+
+  # Fraction of the day BEFORE the event begins (0 for an all-day event).
+  defp start_day_fraction(%Event{start: %Date{}}), do: 0.0
+  defp start_day_fraction(%Event{start: start}), do: day_fraction(start)
+
+  # Fraction of the day the event covers UP TO its end. All-day and
+  # exactly-midnight ends fill the day (1.0) — a midnight end means the last
+  # occupied day is the previous, fully-covered one.
+  defp end_day_fraction(%Event{} = event) do
+    case Event.effective_end(event) do
+      %Date{} ->
+        1.0
+
+      dt ->
+        f = day_fraction(dt)
+        if f == 0.0, do: 1.0, else: f
+    end
+  end
+
+  defp day_fraction(dt) do
+    t = time_of(dt)
+    (t.hour * 3600 + t.minute * 60 + t.second) / 86_400
+  end
+
+  defp time_of(%DateTime{} = dt), do: DateTime.to_time(dt)
+  defp time_of(%NaiveDateTime{} = dt), do: NaiveDateTime.to_time(dt)
+
+  defp pct(fraction), do: "#{Float.round(fraction * 100, 2)}%"
 
   defp day_in_highlight?(day, h) do
     from = Map.get(h, :from)

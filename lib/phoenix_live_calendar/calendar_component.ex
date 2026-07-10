@@ -212,6 +212,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           show_weekends={assigns[:show_weekends] != false}
           fixed_weeks={assigns[:fixed_weeks] != false}
           expand_cells={assigns[:expand_cells] || false}
+          respect_hours={assigns[:respect_hours] || false}
           show_now_indicator={assigns[:show_now_indicator] != false}
           show_all_day_row={assigns[:show_all_day_row] != false}
           business_hours={assigns[:business_hours] || []}
@@ -245,6 +246,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :max_events, :integer, required: true
   attr :max_multiday, :integer, default: nil
   attr :expand_cells, :boolean, default: false
+  attr :respect_hours, :boolean, default: false
   attr :fixed_weeks, :boolean, default: true
   attr :show_week_numbers, :boolean, required: true
   attr :show_weekends, :boolean, required: true
@@ -275,6 +277,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       fixed_weeks={@fixed_weeks}
       max_multiday={assigns[:max_multiday]}
       expand_cells={assigns[:expand_cells] || false}
+      respect_hours={assigns[:respect_hours] || false}
       marker_ticker={assigns[:marker_ticker] != false}
       marker_ticker_interval={assigns[:marker_ticker_interval] || 3000}
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
