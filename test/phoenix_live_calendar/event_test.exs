@@ -81,6 +81,40 @@ defmodule PhoenixLiveCalendar.EventTest do
     end
   end
 
+  describe "last_date/1" do
+    test "all-day event: end is exclusive, so last day is end - 1" do
+      event = %Event{id: "1", start: ~D[2026-04-10], end: ~D[2026-04-17], all_day: true}
+      assert Event.last_date(event) == ~D[2026-04-16]
+    end
+
+    test "timed event ending after midnight occupies its end DATE" do
+      # the 17th-stub bug: this event is on the 17th, so the last day is the
+      # 17th — must match on_date? (which renders a bar segment there)
+      event = %Event{
+        id: "1",
+        start: ~U[2026-04-10 09:00:00Z],
+        end: ~U[2026-04-17 10:00:00Z],
+        all_day: false
+      }
+
+      assert Event.last_date(event) == ~D[2026-04-17]
+      assert Event.on_date?(event, ~D[2026-04-17])
+      refute Event.on_date?(event, ~D[2026-04-18])
+    end
+
+    test "timed event ending exactly at midnight does NOT occupy that day" do
+      event = %Event{
+        id: "1",
+        start: ~U[2026-04-10 09:00:00Z],
+        end: ~U[2026-04-17 00:00:00Z],
+        all_day: false
+      }
+
+      assert Event.last_date(event) == ~D[2026-04-16]
+      refute Event.on_date?(event, ~D[2026-04-17])
+    end
+  end
+
   describe "on_date?/1" do
     test "all-day event is on its date" do
       event = %Event{id: "1", start: ~D[2026-04-01]}

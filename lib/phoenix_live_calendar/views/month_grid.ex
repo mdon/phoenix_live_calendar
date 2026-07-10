@@ -595,9 +595,12 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   end
 
   defp event_is_last_day?(event, day) do
-    # Last day is end_date - 1 (since end is exclusive)
-    end_date = event_end_date(event)
-    Date.compare(Date.add(end_date, -1), day) == :eq
+    # Use the SAME last-occupied date as on_date?, or the two disagree: a
+    # timed event ending after midnight on its last day occupies that day
+    # (on_date? renders a bar segment there) but the old `end_date - 1`
+    # exclusive rule marked the PREVIOUS day as the end — so the real last
+    # day rendered as a stray, un-capped stub.
+    Date.compare(PhoenixLiveCalendar.Event.last_date(event), day) == :eq
   end
 
   defp events_overlap_dates?(a, b) do

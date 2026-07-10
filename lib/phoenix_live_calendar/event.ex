@@ -272,31 +272,30 @@ defmodule PhoenixLiveCalendar.Event do
   """
   @spec on_date?(t(), Date.t()) :: boolean()
   def on_date?(%__MODULE__{} = event, %Date{} = date) do
-    event_start = to_date(event.start)
+    Date.compare(to_date(event.start), date) != :gt and
+      Date.compare(last_date(event), date) != :lt
+  end
+
+  @doc """
+  The LAST calendar date this event occupies on a date grid (inclusive).
+
+  This is the single source of truth for "which day is the event's last
+  day", so bar rendering and occupancy never disagree:
+
+  - All-day events: `end` is exclusive, so the last day is `end - 1`.
+  - Timed events: the event occupies the date it ends ON (an event ending
+    10:30 on the 17th is on the 17th) — UNLESS it ends exactly at midnight
+    (00:00:00), the boundary, which does not count as occupying that day.
+  """
+  @spec last_date(t()) :: Date.t()
+  def last_date(%__MODULE__{} = event) do
     event_end = to_date(effective_end(event))
 
-    # For timed events (not all-day), the end date needs special handling:
-    # A timed event ending at 10:30 on April 1 still occupies April 1.
-    # Only all-day events use exclusive end dates at the date level.
-    # For timed events, if end is on the same date as start, it occupies that date.
-    effective_end_date =
-      if all_day?(event) do
-        event_end
-      else
-        # Timed event: add 1 day for comparison because the event occupies
-        # at least part of that day. UNLESS the end time is exactly midnight
-        # (00:00:00), which means the event ended at the boundary and should
-        # NOT count as occupying the next day.
-        end_time = end_time_of(effective_end(event))
-
-        if end_time != nil and end_time == ~T[00:00:00] do
-          event_end
-        else
-          Date.add(event_end, 1)
-        end
-      end
-
-    Date.compare(event_start, date) != :gt and Date.compare(effective_end_date, date) == :gt
+    cond do
+      all_day?(event) -> Date.add(event_end, -1)
+      end_time_of(effective_end(event)) == ~T[00:00:00] -> Date.add(event_end, -1)
+      true -> event_end
+    end
   end
 
   # Compare two date/datetime values regardless of type
