@@ -1,7 +1,7 @@
 defmodule PhoenixLiveCalendar.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.2.0"
   @description "A comprehensive calendar and scheduling component library for Phoenix LiveView"
   @source_url "https://github.com/mdon/phoenix_live_calendar"
 

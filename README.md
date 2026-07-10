@@ -43,7 +43,7 @@ Add `phoenix_live_calendar` to your dependencies:
 ```elixir
 def deps do
   [
-    {:phoenix_live_calendar, "~> 0.1.0"}
+    {:phoenix_live_calendar, "~> 0.2.0"}
   ]
 end
 ```
