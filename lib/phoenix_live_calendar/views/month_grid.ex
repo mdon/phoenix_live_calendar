@@ -8,6 +8,10 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   and wrapping naturally.
 
   Day markers (holidays, notices) tint the cell background with a corner label.
+  A marker's own `color` class becomes the cell background (heatmap-style
+  views send one marker per day with an intensity class); `text_color`/`class`
+  style the corner chip; `show_label: false` renders the tint with no chip.
+  Unset fields fall back to the type-based defaults.
   """
 
   use Phoenix.Component
@@ -26,7 +30,10 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   - `date` — any date within the month to render
   - `events` — list of `PhoenixLiveCalendar.Event` structs
-  - `day_markers` — list of `PhoenixLiveCalendar.DayMarker` structs
+  - `day_markers` — list of `PhoenixLiveCalendar.DayMarker` structs. A marker's
+    `color`/`text_color`/`class`/`show_label` styling fields are honored (see
+    `PhoenixLiveCalendar.DayMarker` — "Styling"); unset fields fall back to
+    the type-based tints
   - `selected_date` / `today` — dates to highlight
   - `week_start` — `1` (Monday, default) … `7` (Sunday)
   - `max_events` — single-day events shown per cell before a "+N more" link (default `3`)
@@ -192,8 +199,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
               do: "min-h-24 md:min-h-28 lg:min-h-32",
               else: "min-h-24 h-24 md:h-28 lg:h-32 overflow-hidden"
             ),
-            cell_classes(day, @date, @today, @selected_date),
-            marker_bg_class(Map.get(@markers_by_date, day, []))
+            cell_classes(day, @date, @today, @selected_date, Map.get(@markers_by_date, day, []))
           ]}
           role="gridcell"
           aria-selected={to_string(day == @selected_date)}
@@ -220,7 +226,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
               </span>
               <.marker_ticker
                 day={day}
-                markers={Map.get(@markers_by_date, day, [])}
+                markers={labeled_markers(Map.get(@markers_by_date, day, []))}
                 enabled={@marker_ticker}
                 interval={@marker_ticker_interval}
               />
@@ -512,7 +518,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     <span
       class={[
         "cal-marker-label text-[0.55rem] leading-none px-1 py-px rounded font-medium truncate",
-        marker_label_color(hd(@markers))
+        marker_chip_class(hd(@markers))
       ]}
       title={hd(@markers).description || hd(@markers).label}
     >
@@ -528,7 +534,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     <span
       class={[
         "cal-marker-label text-[0.55rem] leading-none px-1 py-px rounded font-medium truncate",
-        marker_label_color(hd(@markers))
+        marker_chip_class(hd(@markers))
       ]}
       title={hd(@markers).description || hd(@markers).label}
     >
@@ -555,7 +561,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
         :for={{marker, idx} <- Enum.with_index(@markers)}
         class={[
           "col-start-1 row-start-1 cal-marker-label flex items-center text-[0.55rem] leading-none px-1 py-px rounded font-medium truncate transition-opacity duration-300",
-          marker_label_color(marker),
+          marker_chip_class(marker),
           if(idx == 0, do: "opacity-100", else: "opacity-0 pointer-events-none")
         ]}
         data-ticker-index={idx}
@@ -567,6 +573,20 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     </div>
     """
   end
+
+  # Markers that want a corner label chip. `show_label: false` (or a nil
+  # label) renders only the cell tint — the heatmap case.
+  defp labeled_markers(markers) do
+    Enum.filter(markers, &(&1.show_label and &1.label != nil))
+  end
+
+  # A marker's own chip styling wins; type-based colors are the fallback.
+  defp marker_chip_class(%{class: class, text_color: text_color})
+       when not is_nil(class) or not is_nil(text_color) do
+    [class, text_color]
+  end
+
+  defp marker_chip_class(marker), do: marker_label_color(marker)
 
   defp marker_label_color(%{type: :holiday}), do: "bg-error/30 text-error-content"
   defp marker_label_color(%{type: :closure}), do: "bg-warning/30 text-warning-content"
@@ -641,14 +661,43 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   # -- Private helpers --
 
-  defp cell_classes(day, month_date, today, selected) do
+  # A marker's own `color` owns the cell background: it replaces the
+  # weekend/out-of-month tint AND the type-based marker tint (stacking two
+  # bg-* utilities on one element resolves by stylesheet order, not class
+  # order — nondeterministic). Today/selected switch from a bg tint to an
+  # inset ring so they stay visible over any marker color (the heatmap
+  # layering rule: marker color under the today/selected indicator, over
+  # the weekend tint).
+  defp cell_classes(day, month_date, today, selected, markers) do
+    case marker_custom_color(markers) do
+      nil -> plain_cell_classes(day, month_date, today, selected, markers)
+      color -> marked_cell_classes(day, today, selected, color)
+    end
+  end
+
+  defp plain_cell_classes(day, month_date, today, selected, markers) do
     [
       not DateHelpers.in_month?(day, month_date) && "bg-base-content/[0.03]",
       day == today && "bg-primary/10",
       day == selected && day != today && "bg-secondary/10",
       DateHelpers.weekend?(day) && DateHelpers.in_month?(day, month_date) &&
-        "bg-base-content/[0.02]"
+        "bg-base-content/[0.02]",
+      marker_bg_class(markers)
     ]
+  end
+
+  defp marked_cell_classes(day, today, selected, color) do
+    [
+      "cal-day-marked",
+      color,
+      day == today && "ring-2 ring-inset ring-primary",
+      day == selected && day != today && "ring-2 ring-inset ring-secondary"
+    ]
+  end
+
+  # First custom cell color among the day's markers, if any.
+  defp marker_custom_color(markers) do
+    Enum.find_value(markers, & &1.color)
   end
 
   defp marker_bg_class([]), do: nil

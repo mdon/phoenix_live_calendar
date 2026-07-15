@@ -57,6 +57,30 @@ defmodule PhoenixLiveCalendar.DayMarker do
         type: :label,
         color: "bg-success/10"
       }
+
+      # Heatmap tint — cell background only, no corner label chip
+      %DayMarker{
+        id: "activity-2026-04-15",
+        label: "42 minutes",
+        start_date: ~D[2026-04-15],
+        color: "bg-success/30",
+        show_label: false
+      }
+
+  ## Styling
+
+  - `color` — cell background class. When set, it becomes the day cell's
+    background (winning over the weekend/out-of-month tint; today/selected
+    stay visible via an inset ring). When unset, the cell falls back to the
+    type-based tint (`:holiday`/`:closure`/`:notice`/`:season`).
+  - `text_color` / `class` — applied to the corner label chip instead of the
+    type-based chip colors. `class` is the chip background/extra classes,
+    `text_color` the text class.
+  - `show_label` — set `false` (or `label: nil`) to render only the cell
+    tint with no corner chip; ideal for heatmap-style markers.
+
+  All classes are the consumer's responsibility to make Tailwind-visible
+  (complete class names, no interpolation).
   """
 
   @enforce_keys [:id, :label, :start_date]
@@ -73,6 +97,7 @@ defmodule PhoenixLiveCalendar.DayMarker do
     :availability,
     type: :notice,
     available: true,
+    show_label: true,
     extra: %{}
   ]
 
@@ -90,6 +115,7 @@ defmodule PhoenixLiveCalendar.DayMarker do
           availability: [PhoenixLiveCalendar.Availability.t()] | nil,
           type: marker_type(),
           available: boolean(),
+          show_label: boolean(),
           extra: map()
         }
 

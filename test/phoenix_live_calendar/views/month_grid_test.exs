@@ -9,6 +9,14 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
 
   defp render(content), do: rendered_to_string(content)
 
+  defp day_cell_class(html, date) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("[data-date='#{date}']")
+    |> Floki.attribute("class")
+    |> hd()
+  end
+
   # Five bars that all overlap → slots 0..4 on every shared day.
   defp overlapping_bars do
     for i <- 1..5 do
@@ -663,6 +671,135 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
 
   describe "day marker styling" do
     alias PhoenixLiveCalendar.DayMarker
+
+    test "a marker's color becomes the cell background, winning over the weekend tint" do
+      # 2026-04-04 is a Saturday — without the marker it carries the weekend tint
+      markers = [
+        %DayMarker{id: "m1", label: "42 min", start_date: ~D[2026-04-04], color: "bg-success/40"}
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+      html = render(~H"<.month_grid date={@date} day_markers={@markers} />")
+
+      class = day_cell_class(html, "2026-04-04")
+      assert class =~ "bg-success/40"
+      assert class =~ "cal-day-marked"
+      refute class =~ "bg-base-content/[0.02]"
+    end
+
+    test "today and selected keep an inset ring over a custom marker color" do
+      markers = [
+        %DayMarker{id: "m1", label: "x", start_date: ~D[2026-04-15], color: "bg-success/40"},
+        %DayMarker{id: "m2", label: "y", start_date: ~D[2026-04-16], color: "bg-success/70"}
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+
+      html =
+        render(~H"<.month_grid
+  date={@date}
+  day_markers={@markers}
+  today={~D[2026-04-15]}
+  selected_date={~D[2026-04-16]}
+/>")
+
+      today_class = day_cell_class(html, "2026-04-15")
+      assert today_class =~ "bg-success/40"
+      assert today_class =~ "ring-2 ring-inset ring-primary"
+      refute today_class =~ "bg-primary/10"
+
+      selected_class = day_cell_class(html, "2026-04-16")
+      assert selected_class =~ "bg-success/70"
+      assert selected_class =~ "ring-2 ring-inset ring-secondary"
+      refute selected_class =~ "bg-secondary/10"
+    end
+
+    test "markers without a custom color keep the type-based cell tint" do
+      markers = [
+        %DayMarker{
+          id: "xmas",
+          label: "Christmas",
+          start_date: ~D[2026-04-10],
+          type: :holiday,
+          available: false
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+      html = render(~H"<.month_grid date={@date} day_markers={@markers} />")
+
+      class = day_cell_class(html, "2026-04-10")
+      assert class =~ "bg-error/8"
+      refute class =~ "cal-day-marked"
+    end
+
+    test "text_color and class style the label chip, replacing the type defaults" do
+      markers = [
+        %DayMarker{
+          id: "m1",
+          label: "Custom",
+          start_date: ~D[2026-04-10],
+          class: "bg-purple-500",
+          text_color: "text-white"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+      html = render(~H"<.month_grid date={@date} day_markers={@markers} />")
+
+      chip_class =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-date='2026-04-10'] .cal-marker-label")
+        |> Floki.attribute("class")
+        |> hd()
+
+      assert chip_class =~ "bg-purple-500"
+      assert chip_class =~ "text-white"
+      refute chip_class =~ "bg-base-200"
+    end
+
+    test "show_label: false renders the cell tint with no corner chip" do
+      markers = [
+        %DayMarker{
+          id: "m1",
+          label: "42 min",
+          start_date: ~D[2026-04-10],
+          color: "bg-success/40",
+          show_label: false
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+      html = render(~H"<.month_grid date={@date} day_markers={@markers} />")
+
+      assert day_cell_class(html, "2026-04-10") =~ "bg-success/40"
+
+      chips =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-date='2026-04-10'] .cal-marker-label")
+
+      assert chips == []
+    end
+
+    test "a nil label is tolerated and renders no chip" do
+      markers = [
+        %DayMarker{id: "m1", label: nil, start_date: ~D[2026-04-10], color: "bg-success/40"}
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+      html = render(~H"<.month_grid date={@date} day_markers={@markers} />")
+
+      assert day_cell_class(html, "2026-04-10") =~ "bg-success/40"
+
+      chips =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-date='2026-04-10'] .cal-marker-label")
+
+      assert chips == []
+    end
 
     test "ticker ids are unique across the days of a multi-day marker" do
       # Two markers covering the same two days → each day renders a ticker.
