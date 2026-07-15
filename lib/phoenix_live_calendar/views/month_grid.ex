@@ -219,6 +219,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                 {day.day}
               </span>
               <.marker_ticker
+                day={day}
                 markers={Map.get(@markers_by_date, day, [])}
                 enabled={@marker_ticker}
                 interval={@marker_ticker_interval}
@@ -496,6 +497,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   # -- Day marker label (top-right corner) --
 
+  attr :day, Date, required: true
   attr :markers, :list, required: true
   attr :enabled, :boolean, required: true
   attr :interval, :integer, required: true
@@ -540,12 +542,14 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     # Multiple markers with ticker enabled.
     # Uses a grid stack so all items occupy the same cell.
     # Only the first is visible; the JS hook cycles through them.
+    # The id includes the day: a multi-day marker yields the identical marker
+    # list on every day it covers, so a hash of the list alone would collide.
     ~H"""
     <div
       class="cal-marker-ticker grid min-w-0"
       phx-hook="MarkerTicker"
       data-interval={@interval}
-      id={"ticker-#{:erlang.phash2(@markers)}"}
+      id={"ticker-#{Date.to_iso8601(@day)}-#{:erlang.phash2(@markers)}"}
     >
       <span
         :for={{marker, idx} <- Enum.with_index(@markers)}

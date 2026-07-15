@@ -625,4 +625,42 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       assert html =~ "cal-more-link"
     end
   end
+
+  describe "day marker styling" do
+    alias PhoenixLiveCalendar.DayMarker
+
+    test "ticker ids are unique across the days of a multi-day marker" do
+      # Two markers covering the same two days → each day renders a ticker.
+      # The id must differ per day, or a multi-day marker produces duplicate
+      # DOM ids (invalid HTML, misbinding MarkerTicker hooks).
+      markers = [
+        %DayMarker{
+          id: "m1",
+          label: "Alpha",
+          start_date: ~D[2026-04-06],
+          end_date: ~D[2026-04-08]
+        },
+        %DayMarker{
+          id: "m2",
+          label: "Beta",
+          start_date: ~D[2026-04-06],
+          end_date: ~D[2026-04-08]
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+      html = render(~H"<.month_grid date={@date} day_markers={@markers} />")
+
+      ticker_ids =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find(".cal-marker-ticker")
+        |> Floki.attribute("id")
+
+      assert length(ticker_ids) == 2
+      assert length(Enum.uniq(ticker_ids)) == 2
+      assert Enum.any?(ticker_ids, &(&1 =~ "2026-04-06"))
+      assert Enum.any?(ticker_ids, &(&1 =~ "2026-04-07"))
+    end
+  end
 end
