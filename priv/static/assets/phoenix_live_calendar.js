@@ -499,10 +499,13 @@
         this._resumeTimer = setTimeout(() => { this._paused = false; }, 500);
       });
 
-      // Listen for external pause (e.g., popover open)
+      // Listen for external pause (e.g., popover open). Pausing must also
+      // cancel a pending hover-resume, or a mouseleave shortly before the
+      // event un-pauses the ticker 500ms into the popover.
       this._onPause = (e) => {
         if (e.detail && e.detail.paused !== undefined) {
           this._paused = e.detail.paused;
+          if (this._paused) clearTimeout(this._resumeTimer);
         }
       };
       window.addEventListener("lc:ticker-pause", this._onPause);
@@ -511,8 +514,18 @@
     updated() {
       // A LiveView patch re-rendered the ticker: the server put item 0 back
       // in the visible state and the cached NodeList points at stale nodes —
-      // re-query and restart the cycle from 0.
+      // re-query and restart the cycle from 0. A patched data-interval also
+      // re-arms the timer.
       this._refresh();
+      const interval = parseInt(this.el.dataset.interval || "3000");
+      if (interval !== this._interval) {
+        this._interval = interval;
+        clearInterval(this._timer);
+        this._timer = setInterval(() => {
+          if (this._paused || this._count <= 1) return;
+          this._advance();
+        }, this._interval);
+      }
     },
 
     _refresh() {
