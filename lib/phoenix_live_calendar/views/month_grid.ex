@@ -693,14 +693,6 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     end
   end
 
-  defp event_end_date(%Event{} = e) do
-    case Event.effective_end(e) do
-      %Date{} = d -> d
-      %DateTime{} = dt -> DateTime.to_date(dt)
-      %NaiveDateTime{} = ndt -> NaiveDateTime.to_date(ndt)
-    end
-  end
-
   defp event_is_last_day?(event, day) do
     # Use the SAME last-occupied date as on_date?, or the two disagree: a
     # timed event ending after midnight on its last day occupies that day
@@ -710,13 +702,18 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     Date.compare(PhoenixLiveCalendar.Event.last_date(event), day) == :eq
   end
 
+  # Compare INCLUSIVE last dates (Event.last_date/1) — the same occupancy rule
+  # on_date?/event_is_last_day? use. The old raw-end-date + strict :gt check
+  # treated a midnight-crossing timed event (22:00 → 01:00 next day) as ending
+  # a day early: it could share a slot with an event starting that next day,
+  # and slot_entry_for_day's Enum.find then silently dropped one segment.
   defp events_overlap_dates?(a, b) do
     a_start = event_start_date(a)
-    a_end = event_end_date(a)
+    a_last = Event.last_date(a)
     b_start = event_start_date(b)
-    b_end = event_end_date(b)
+    b_last = Event.last_date(b)
 
-    Date.compare(a_start, b_end) == :lt and Date.compare(a_end, b_start) == :gt
+    Date.compare(a_start, b_last) != :gt and Date.compare(a_last, b_start) != :lt
   end
 
   defp filter_weekday_names(names, week_start) do

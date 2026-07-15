@@ -626,6 +626,41 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
     end
   end
 
+  describe "slot sharing vs midnight-crossing events" do
+    # A occupies Jan 1 AND Jan 2 (last_date = Jan 2, it runs past midnight);
+    # B starts on Jan 2. The old overlap check compared A's raw end DATE with
+    # strict :gt (exclusive semantics), judged them non-overlapping, and let
+    # them share a slot — slot_entry_for_day then found only ONE of them on
+    # Jan 2, silently dropping the other's segment.
+    test "a midnight-crossing event never shares a slot with an event starting on its last day" do
+      events = [
+        %Event{
+          id: "night-a",
+          start: ~U[2026-01-01 22:00:00Z],
+          end: ~U[2026-01-02 01:00:00Z],
+          title: "Night A"
+        },
+        %Event{
+          id: "night-b",
+          start: ~U[2026-01-02 22:00:00Z],
+          end: ~U[2026-01-03 01:00:00Z],
+          title: "Night B"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-01-01], events: events}
+      html = render(~H"<.month_grid date={@date} events={@events} />")
+
+      bar_ids_on_jan2 =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-date='2026-01-02'] .cal-multiday-bar")
+        |> Floki.attribute("phx-value-event-id")
+
+      assert Enum.sort(bar_ids_on_jan2) == ["night-a", "night-b"]
+    end
+  end
+
   describe "day marker styling" do
     alias PhoenixLiveCalendar.DayMarker
 
