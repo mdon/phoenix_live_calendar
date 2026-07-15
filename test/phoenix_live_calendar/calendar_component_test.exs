@@ -34,6 +34,30 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert socket.assigns.internal_date == ~D[2026-06-01]
     end
 
+    test "a :today prop (without :date) seeds internal_date" do
+      # A timezone-correct today must win over the server's UTC today, or a
+      # viewer east of UTC opens the calendar on the wrong month late evening.
+      local_today = Date.add(Date.utc_today(), 60)
+      socket = mounted() |> update(%{today: local_today})
+      assert socket.assigns.internal_date == local_today
+    end
+
+    test "an explicit :date wins over :today for the initial anchor" do
+      socket = mounted() |> update(%{today: ~D[2026-08-15], date: ~D[2026-06-01]})
+      assert socket.assigns.internal_date == ~D[2026-06-01]
+    end
+
+    test "a later :today change does not snap the user's navigation" do
+      socket = mounted() |> update(%{today: ~D[2026-08-15]})
+
+      # User navigates to another month (lc_navigate owns internal_date).
+      socket = Component.assign(socket, :internal_date, ~D[2026-10-01])
+
+      # Midnight rolls today over — must not yank the calendar back.
+      socket = update(socket, %{today: ~D[2026-08-16]})
+      assert socket.assigns.internal_date == ~D[2026-10-01]
+    end
+
     test "a re-render passing the SAME :view preserves the user's navigation" do
       socket = mounted() |> update(%{view: :month, date: ~D[2026-06-01]})
 

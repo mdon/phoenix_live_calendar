@@ -86,7 +86,6 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   def mount(socket) do
     {:ok,
      socket
-     |> assign_new(:internal_date, fn -> Date.utc_today() end)
      |> assign_new(:internal_view, fn -> :month end)
      # Last parent-provided :date / :view, tracked so we can tell an actual
      # parent-driven change apart from a routine re-render passing the same value.
@@ -101,10 +100,17 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     # Profile incoming events on every data update (cheap, always runs once)
     assigns = maybe_profile_ingress(assigns, socket)
 
-    # On first render or when parent pushes a new date/view, sync internal state
+    # On first render or when parent pushes a new date/view, sync internal state.
+    # `internal_date` is seeded HERE, not in mount/1: a LiveComponent's mount
+    # can't see parent assigns, and a timezone-correct `today` (without an
+    # explicit `date`) must win over the server's UTC today — otherwise a
+    # viewer east of UTC opens the calendar on the wrong month late evening.
     socket =
       socket
       |> assign(assigns)
+      |> assign_new(:internal_date, fn ->
+        assigns[:date] || assigns[:today] || Date.utc_today()
+      end)
       |> maybe_sync_date(assigns)
       |> maybe_sync_view(assigns)
 
