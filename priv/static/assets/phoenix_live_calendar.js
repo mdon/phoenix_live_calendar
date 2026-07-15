@@ -473,27 +473,30 @@
   // ============================================================
   window.PhoenixLiveCalendarHooks.MarkerTicker = {
     mounted() {
-      this._items = this.el.querySelectorAll("[data-ticker-index]");
-      this._count = this._items.length;
-      this._current = 0;
       this._paused = false;
       this._interval = parseInt(this.el.dataset.interval || "3000");
+      this._refresh();
 
-      if (this._count <= 1) return;
-
+      // Always run the timer and guard inside it: a LiveView patch can change
+      // the item count either way, and _refresh() alone can't start a timer
+      // that mounted() skipped.
       this._timer = setInterval(() => {
-        if (this._paused) return;
+        if (this._paused || this._count <= 1) return;
         this._advance();
       }, this._interval);
 
       // Pause on hover so user can read
       this.el.addEventListener("mouseenter", () => {
         this._paused = true;
+        clearTimeout(this._resumeTimer);
       });
       this.el.addEventListener("mouseleave", () => {
         this._paused = true;
-        // Resume after a short delay to avoid jarring immediate switch
-        setTimeout(() => { this._paused = false; }, 500);
+        // Resume after a short delay to avoid jarring immediate switch.
+        // Track the timer: a quick leave→re-enter must cancel the pending
+        // resume, or the ticker advances while hovered.
+        clearTimeout(this._resumeTimer);
+        this._resumeTimer = setTimeout(() => { this._paused = false; }, 500);
       });
 
       // Listen for external pause (e.g., popover open)
@@ -503,6 +506,19 @@
         }
       };
       window.addEventListener("lc:ticker-pause", this._onPause);
+    },
+
+    updated() {
+      // A LiveView patch re-rendered the ticker: the server put item 0 back
+      // in the visible state and the cached NodeList points at stale nodes —
+      // re-query and restart the cycle from 0.
+      this._refresh();
+    },
+
+    _refresh() {
+      this._items = this.el.querySelectorAll("[data-ticker-index]");
+      this._count = this._items.length;
+      this._current = 0;
     },
 
     _advance() {
@@ -515,6 +531,7 @@
 
     destroyed() {
       clearInterval(this._timer);
+      clearTimeout(this._resumeTimer);
       window.removeEventListener("lc:ticker-pause", this._onPause);
     },
   };
