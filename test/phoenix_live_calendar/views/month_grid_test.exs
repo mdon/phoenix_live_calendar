@@ -801,6 +801,57 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       assert chips == []
     end
 
+    test "a custom color keeps the semantic marker class on the cell" do
+      # Consumer CSS/tests key off cal-day-holiday etc.; the color replaces
+      # only the bg utility, never the semantic hook.
+      markers = [
+        %DayMarker{
+          id: "xmas",
+          label: "Christmas",
+          start_date: ~D[2026-04-10],
+          type: :holiday,
+          available: false,
+          color: "bg-error/40"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+      html = render(~H"<.month_grid date={@date} day_markers={@markers} />")
+
+      class = day_cell_class(html, "2026-04-10")
+      assert class =~ "cal-day-holiday"
+      assert class =~ "bg-error/40"
+      refute class =~ "bg-error/8"
+    end
+
+    test "the id attr prefixes ticker ids so two grids on one page can't collide" do
+      markers = [
+        %DayMarker{id: "m1", label: "Alpha", start_date: ~D[2026-04-06]},
+        %DayMarker{id: "m2", label: "Beta", start_date: ~D[2026-04-06]}
+      ]
+
+      assigns = %{date: ~D[2026-04-01], markers: markers, id_a: "cal-a", id_b: "cal-b"}
+
+      html_a = render(~H"<.month_grid id={@id_a} date={@date} day_markers={@markers} />")
+      html_b = render(~H"<.month_grid id={@id_b} date={@date} day_markers={@markers} />")
+
+      [id_a] =
+        html_a
+        |> Floki.parse_document!()
+        |> Floki.find(".cal-marker-ticker")
+        |> Floki.attribute("id")
+
+      [id_b] =
+        html_b
+        |> Floki.parse_document!()
+        |> Floki.find(".cal-marker-ticker")
+        |> Floki.attribute("id")
+
+      assert String.starts_with?(id_a, "cal-a-ticker-")
+      assert String.starts_with?(id_b, "cal-b-ticker-")
+      assert id_a != id_b
+    end
+
     test "ticker ids are unique across the days of a multi-day marker" do
       # Two markers covering the same two days → each day renders a ticker.
       # The id must differ per day, or a multi-day marker produces duplicate

@@ -45,6 +45,12 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   - `translations` / `time_format` / `dir` / `class` — presentation
   """
   attr :date, Date, required: true
+
+  attr :id, :string,
+    default: nil,
+    doc:
+      "Optional prefix for generated DOM ids (the marker ticker). Set it when two month grids on one page can show the identical marker set — without it their ticker ids collide."
+
   attr :events, :list, default: []
   attr :day_markers, :list, default: []
   attr :selected_date, Date, default: nil
@@ -225,6 +231,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                 {day.day}
               </span>
               <.marker_ticker
+                id_prefix={@id}
                 day={day}
                 markers={labeled_markers(Map.get(@markers_by_date, day, []))}
                 enabled={@marker_ticker}
@@ -503,6 +510,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   # -- Day marker label (top-right corner) --
 
+  attr :id_prefix, :string, required: true
   attr :day, Date, required: true
   attr :markers, :list, required: true
   attr :enabled, :boolean, required: true
@@ -550,12 +558,13 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     # Only the first is visible; the JS hook cycles through them.
     # The id includes the day: a multi-day marker yields the identical marker
     # list on every day it covers, so a hash of the list alone would collide.
+    # The optional grid-level id prefix disambiguates two grids on one page.
     ~H"""
     <div
       class="cal-marker-ticker grid min-w-0"
       phx-hook="MarkerTicker"
       data-interval={@interval}
-      id={"ticker-#{Date.to_iso8601(@day)}-#{:erlang.phash2(@markers)}"}
+      id={"#{if @id_prefix, do: "#{@id_prefix}-"}ticker-#{Date.to_iso8601(@day)}-#{:erlang.phash2(@markers)}"}
     >
       <span
         :for={{marker, idx} <- Enum.with_index(@markers)}
@@ -671,7 +680,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   defp cell_classes(day, month_date, today, selected, markers) do
     case marker_custom_color(markers) do
       nil -> plain_cell_classes(day, month_date, today, selected, markers)
-      color -> marked_cell_classes(day, today, selected, color)
+      color -> marked_cell_classes(day, today, selected, color, markers)
     end
   end
 
@@ -686,9 +695,13 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     ]
   end
 
-  defp marked_cell_classes(day, today, selected, color) do
+  # The custom color replaces only the type-based bg UTILITY — the semantic
+  # hook class (cal-day-holiday etc.) is kept so consumer CSS/tests keying
+  # off it keep matching.
+  defp marked_cell_classes(day, today, selected, color, markers) do
     [
       "cal-day-marked",
+      marker_semantic_class(markers),
       color,
       day == today && "ring-2 ring-inset ring-primary",
       day == selected && day != today && "ring-2 ring-inset ring-secondary"
@@ -700,24 +713,26 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     Enum.find_value(markers, & &1.color)
   end
 
+  # Semantic hook class for the day's markers (no bg utility).
+  defp marker_semantic_class(markers) do
+    cond do
+      Enum.any?(markers, &(not &1.available and &1.type == :holiday)) -> "cal-day-holiday"
+      Enum.any?(markers, &(not &1.available)) -> "cal-day-closed"
+      Enum.any?(markers, &(&1.type == :notice)) -> "cal-day-notice"
+      Enum.any?(markers, &(&1.type == :season)) -> "cal-day-season"
+      true -> nil
+    end
+  end
+
   defp marker_bg_class([]), do: nil
 
   defp marker_bg_class(markers) do
-    cond do
-      Enum.any?(markers, &(not &1.available and &1.type == :holiday)) ->
-        "cal-day-holiday bg-error/8"
-
-      Enum.any?(markers, &(not &1.available)) ->
-        "cal-day-closed bg-error/5"
-
-      Enum.any?(markers, &(&1.type == :notice)) ->
-        "cal-day-notice bg-info/5"
-
-      Enum.any?(markers, &(&1.type == :season)) ->
-        "cal-day-season bg-accent/5"
-
-      true ->
-        nil
+    case marker_semantic_class(markers) do
+      "cal-day-holiday" -> "cal-day-holiday bg-error/8"
+      "cal-day-closed" -> "cal-day-closed bg-error/5"
+      "cal-day-notice" -> "cal-day-notice bg-info/5"
+      "cal-day-season" -> "cal-day-season bg-accent/5"
+      nil -> nil
     end
   end
 
