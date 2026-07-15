@@ -44,6 +44,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
   attr :slot_duration, :integer, default: 30
   attr :slot_height, :string, default: "3rem"
   attr :show_now_indicator, :boolean, default: true
+  attr :now, Time, default: nil
   attr :on_time_click, :any, default: nil
   attr :on_event_click, :any, default: nil
   attr :translations, :map, default: %{}
@@ -64,7 +65,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
     events_by_resource =
       Enum.group_by(assigns.events, & &1.resource_id)
 
-    now = Time.utc_now()
+    now = assigns.now || Time.utc_now()
     today = Date.utc_today()
     col_count = length(assigns.resources)
 

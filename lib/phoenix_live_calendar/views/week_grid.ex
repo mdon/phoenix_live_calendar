@@ -50,6 +50,12 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   attr :slot_height, :string, default: "3rem"
   attr :show_now_indicator, :boolean, default: true
   attr :show_all_day_row, :boolean, default: true
+
+  attr :now, Time,
+    default: nil,
+    doc:
+      "Current wall-clock time for the now indicator (default: `Time.utc_now()`). Pass the viewer's local time when your events/`today` are in the viewer's frame."
+
   attr :business_hours, :list, default: []
   attr :on_date_click, :any, default: nil
   attr :on_time_click, :any, default: nil
@@ -80,7 +86,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     events_by_date = DateHelpers.group_events_by_date(timed_events, assigns.dates)
     all_day_by_date = DateHelpers.group_events_by_date(all_day_events, assigns.dates)
 
-    now = Time.utc_now()
+    now = assigns.now || Time.utc_now()
     col_count = length(assigns.dates)
 
     # Compute overlap layout per day for side-by-side positioning
