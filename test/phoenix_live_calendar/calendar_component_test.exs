@@ -58,6 +58,27 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert socket.assigns.internal_date == ~D[2026-10-01]
     end
 
+    test "the switcher's flat n_day value rehydrates the day count" do
+      # The header serializes {:n_day, n} as "n_day" (a tuple isn't
+      # attribute-safe); the handler must rebuild the tuple from n_days or
+      # the internal view dispatches to the unknown-view fallback.
+      socket = mounted() |> update(%{view: :month, date: ~D[2026-06-01], n_days: 3})
+
+      {:noreply, socket} =
+        CalendarComponent.handle_event("lc_view_change", %{"view" => "n_day"}, socket)
+
+      assert socket.assigns.internal_view == {:n_day, 3}
+    end
+
+    test "n_day defaults to 4 days when n_days is not set" do
+      socket = mounted() |> update(%{view: :month, date: ~D[2026-06-01]})
+
+      {:noreply, socket} =
+        CalendarComponent.handle_event("lc_view_change", %{"view" => "n_day"}, socket)
+
+      assert socket.assigns.internal_view == {:n_day, 4}
+    end
+
     test "a re-render passing the SAME :view preserves the user's navigation" do
       socket = mounted() |> update(%{view: :month, date: ~D[2026-06-01]})
 
@@ -364,6 +385,51 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       # render_html anchors on 2026-06-15 — June 2026 spans 5 natural weeks.
       assert week_rows.(render_html(:month)) == 6
       assert week_rows.(render_html(:month, %{fixed_weeks: false})) == 5
+    end
+
+    test "forwards marker_ticker: false to the month grid" do
+      # Was read via assigns[:marker_ticker] inside the dispatcher but never
+      # declared/passed through render_view — a consumer's false was ignored.
+      markers = [
+        %PhoenixLiveCalendar.DayMarker{id: "m1", label: "Alpha", start_date: ~D[2026-06-10]},
+        %PhoenixLiveCalendar.DayMarker{id: "m2", label: "Beta", start_date: ~D[2026-06-10]}
+      ]
+
+      assert render_html(:month, %{day_markers: markers}) =~ "cal-marker-ticker"
+
+      refute render_html(:month, %{day_markers: markers, marker_ticker: false}) =~
+               "cal-marker-ticker"
+    end
+
+    test "prefixes month ticker ids with the component id" do
+      markers = [
+        %PhoenixLiveCalendar.DayMarker{id: "m1", label: "Alpha", start_date: ~D[2026-06-10]},
+        %PhoenixLiveCalendar.DayMarker{id: "m2", label: "Beta", start_date: ~D[2026-06-10]}
+      ]
+
+      # Two components on one page get distinct ticker ids via their own id.
+      assert render_html(:month, %{day_markers: markers}) =~ ~s(id="cal-month-ticker-2026-06-10)
+    end
+
+    test "forwards slot_width and resource_width to the timeline" do
+      # Previously unreachable from the wrapper entirely.
+      html =
+        render_html(:timeline, %{
+          resources: [%PhoenixLiveCalendar.Resource{id: "r1", title: "Room A"}],
+          slot_width: "8rem",
+          resource_width: "16rem"
+        })
+
+      assert html =~ "width: 8rem"
+      assert html =~ "width: 16rem"
+    end
+
+    test "renders a switcher button for an {:n_day, n} view without crashing" do
+      # A tuple isn't attribute-safe — the header must serialize it flat.
+      html = render_html(:month, %{views: [:month, {:n_day, 3}]})
+
+      assert html =~ ~s(phx-value-view="n_day")
+      assert html =~ "3 Day"
     end
   end
 

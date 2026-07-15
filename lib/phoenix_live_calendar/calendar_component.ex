@@ -229,6 +229,12 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           agenda_days={assigns[:agenda_days] || 30}
           year_columns={assigns[:year_columns] || 3}
           day_markers={assigns[:day_markers] || []}
+          id={@id}
+          now={assigns[:now]}
+          marker_ticker={assigns[:marker_ticker] != false}
+          marker_ticker_interval={assigns[:marker_ticker_interval] || 3000}
+          slot_width={assigns[:slot_width] || "5rem"}
+          resource_width={assigns[:resource_width] || "12rem"}
           filter_to_date={assigns[:filter_to_date] != false}
           clamp_to_date={assigns[:clamp_to_date] != false}
           sticky_resource_column={assigns[:sticky_resource_column] != false}
@@ -270,6 +276,12 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :agenda_days, :integer, required: true
   attr :year_columns, :integer, required: true
   attr :day_markers, :list, required: true
+  attr :id, :string, default: nil
+  attr :now, Time, default: nil
+  attr :marker_ticker, :boolean, default: true
+  attr :marker_ticker_interval, :integer, default: 3000
+  attr :slot_width, :string, default: "5rem"
+  attr :resource_width, :string, default: "12rem"
   attr :filter_to_date, :boolean, default: true
   attr :clamp_to_date, :boolean, default: true
   attr :sticky_resource_column, :boolean, default: true
@@ -289,11 +301,12 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       show_week_numbers={@show_week_numbers}
       show_weekends={@show_weekends}
       fixed_weeks={@fixed_weeks}
+      id={@id && "#{@id}-month"}
       max_multiday={assigns[:max_multiday]}
       expand_cells={assigns[:expand_cells] || false}
       respect_hours={assigns[:respect_hours] || false}
-      marker_ticker={assigns[:marker_ticker] != false}
-      marker_ticker_interval={assigns[:marker_ticker_interval] || 3000}
+      marker_ticker={@marker_ticker}
+      marker_ticker_interval={@marker_ticker_interval}
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       on_more_click={Phoenix.LiveView.JS.push("lc_more_click", target: @myself)}
@@ -319,6 +332,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       slot_duration={@slot_duration}
       slot_height={@slot_height}
       show_now_indicator={@show_now_indicator}
+      now={@now}
       show_all_day_row={@show_all_day_row}
       business_hours={@business_hours}
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
@@ -343,6 +357,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       slot_duration={@slot_duration}
       slot_height={@slot_height}
       show_now_indicator={@show_now_indicator}
+      now={@now}
       show_all_day_row={@show_all_day_row}
       business_hours={@business_hours}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
@@ -367,6 +382,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       slot_duration={@slot_duration}
       slot_height={@slot_height}
       show_now_indicator={@show_now_indicator}
+      now={@now}
       show_all_day_row={@show_all_day_row}
       business_hours={@business_hours}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
@@ -423,6 +439,9 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       fit_to_events={@fit_to_events}
       show_now_indicator={@show_now_indicator}
       today={@today}
+      now={@now}
+      slot_width={@slot_width}
+      resource_width={@resource_width}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       on_slot_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       translations={@translations}
@@ -443,6 +462,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       slot_duration={@slot_duration}
       slot_height={@slot_height}
       show_now_indicator={@show_now_indicator}
+      now={@now}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       translations={@translations}
@@ -499,6 +519,8 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
         {:noreply, socket}
 
       view ->
+        view = resolve_view(view, socket.assigns)
+
         socket =
           socket
           |> assign(:internal_view, view)
@@ -709,6 +731,11 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp normalize_view({:n_day, _} = v), do: v
   defp normalize_view(v), do: v
 
+  # The switcher sends "n_day" as a flat string (a tuple isn't attribute-safe);
+  # the internal representation carries the day count, so rehydrate it here.
+  defp resolve_view(:n_day, assigns), do: {:n_day, assigns[:n_days] || 4}
+  defp resolve_view(view, _assigns), do: view
+
   # Safe direction parsing — only :prev and :next are valid
   defp safe_direction("prev"), do: :prev
   defp safe_direction("next"), do: :next
@@ -725,6 +752,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp safe_parse_view("month"), do: :month
   defp safe_parse_view("week"), do: :week
   defp safe_parse_view("day"), do: :day
+  defp safe_parse_view("n_day"), do: :n_day
   defp safe_parse_view("year"), do: :year
   defp safe_parse_view("agenda"), do: :agenda
   defp safe_parse_view("timeline"), do: :timeline

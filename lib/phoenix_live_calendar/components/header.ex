@@ -162,7 +162,7 @@ defmodule PhoenixLiveCalendar.Components.Header do
               if(v == @view, do: "btn-active btn-primary", else: "btn-ghost")
             ]}
             phx-click={@on_view_change}
-            phx-value-view={v}
+            phx-value-view={view_value(v)}
             aria-pressed={to_string(v == @view)}
           >
             {view_label(v, @translations)}
@@ -174,6 +174,12 @@ defmodule PhoenixLiveCalendar.Components.Header do
     </div>
     """
   end
+
+  # The serialized value the switcher button sends. A `{:n_day, n}` view is
+  # a tuple — not attribute-safe — so it flattens to "n_day" (the component's
+  # lc_view_change rehydrates the day count from its n_days attr).
+  defp view_value({:n_day, _}), do: "n_day"
+  defp view_value(v), do: to_string(v)
 
   defp view_label(:month, t), do: I18n.label(:month, t)
   defp view_label(:week, t), do: I18n.label(:week, t)
