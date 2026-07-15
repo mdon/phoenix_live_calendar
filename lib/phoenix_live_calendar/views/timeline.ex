@@ -33,7 +33,9 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   - `slot_width` — CSS width per time slot (default: "5rem")
   - `resource_width` — CSS width for the resource label column (default: "12rem")
   - `filter_to_date` — Only render events that occupy `date` (default: `true`).
-    Off = the caller pre-filters; every event in `events` renders
+    Off = the caller pre-filters; every event in `events` renders. Note that
+    `clamp_to_date` also implies this filter — an event that never touches
+    the date has an empty intersection with it, so there is nothing to draw
   - `clamp_to_date` — Clamp each event's bar to the intersection of its span
     with `date`, so midnight-crossing events position correctly on both days
     (default: `true`). Off = bars position by raw time-of-day (an event
@@ -41,12 +43,17 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   - `sticky_resource_column` — Keep the resource label column pinned during
     horizontal scroll (default: `true`)
   - `show_now_indicator` — Vertical current-time line when `date` is today
-    (default: `true`, matching the day/week grids)
+    and the current time falls inside the visible window (default: `true`,
+    matching the day/week grids)
   - `today` — Today's date, for the now indicator (default: `Date.utc_today()`)
+  - `now` — Current wall-clock time for the now indicator (default:
+    `Time.utc_now()`). Pass the viewer's local time when your events/`today`
+    are in the viewer's frame
   - `fit_to_events` — Compute the visible window from the rendered events
     instead of `min_time`/`max_time`: earliest start floored to the hour,
     latest end ceiled to the hour (default: `false`). Falls back to
-    `min_time`/`max_time` when no timed events render
+    `min_time`/`max_time` when no timed events render or when the computed
+    window would be empty/inverted
   - `on_event_click` — Handler for event clicks
   - `on_slot_click` — Handler for time slot clicks
   - `translations` — Translation overrides
@@ -74,6 +81,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   attr :sticky_resource_column, :boolean, default: true
   attr :show_now_indicator, :boolean, default: true
   attr :today, Date, default: nil
+  attr :now, Time, default: nil
   attr :fit_to_events, :boolean, default: false
   attr :on_event_click, :any, default: nil
   attr :on_slot_click, :any, default: nil
@@ -86,8 +94,11 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   slot :resource_label
 
   def timeline(assigns) do
+    # clamp_to_date implies the date filter: with clamping, an event's bar is
+    # its intersection with the date — no intersection means nothing to draw
+    # (one-sided clamping of an off-date event would fabricate a bar).
     events =
-      if assigns.filter_to_date,
+      if assigns.filter_to_date or assigns.clamp_to_date,
         do: Enum.filter(assigns.events, &Event.on_date?(&1, assigns.date)),
         else: assigns.events
 
@@ -107,10 +118,15 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
       end)
 
     today = assigns.today || Date.utc_today()
+    now = assigns.now || Time.utc_now()
 
+    # Hidden when the current time falls outside the visible window —
+    # time_to_percentage would clamp it to 0/100 and draw a false line
+    # pinned at the window edge (fit_to_events windows especially).
     now_pct =
-      if assigns.show_now_indicator and assigns.date == today do
-        TimeSlots.time_to_percentage(Time.utc_now(), min_time: min_time, max_time: max_time)
+      if assigns.show_now_indicator and assigns.date == today and
+           Time.compare(now, min_time) != :lt and Time.compare(now, max_time) != :gt do
+        TimeSlots.time_to_percentage(now, min_time: min_time, max_time: max_time)
       end
 
     assigns =
@@ -124,12 +140,14 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     ~H"""
     <div class={["cal-timeline overflow-x-auto", @class]} dir={to_string(@dir)}>
       <div class="inline-flex flex-col min-w-full">
-        <%!-- Time header --%>
-        <div class="cal-timeline-header flex border-b border-base-200 sticky top-0 bg-base-100 z-10">
+        <%!-- Time header. z-30: the header band must paint over the sticky
+             row labels (z-20) and event bars (z-10) when rows scroll under
+             it vertically — its own children's z-values are scoped inside. --%>
+        <div class="cal-timeline-header flex border-b border-base-200 sticky top-0 bg-base-100 z-30">
           <div
             class={[
               "cal-timeline-resource-header flex-shrink-0 border-r border-base-200 px-2 py-2 font-medium text-sm",
-              @sticky_resource_column && "sticky left-0 z-30 bg-base-100"
+              @sticky_resource_column && "sticky start-0 z-30 bg-base-100"
             ]}
             style={"width: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@resource_width)}"}
           >
@@ -154,7 +172,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
           <div
             class={[
               "cal-timeline-resource-label flex-shrink-0 border-r border-base-200 px-2 py-2 flex items-center",
-              @sticky_resource_column && "sticky left-0 z-20 bg-base-100"
+              @sticky_resource_column && "sticky start-0 z-20 bg-base-100"
             ]}
             style={"width: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@resource_width)}"}
           >
@@ -186,11 +204,12 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
             </div>
 
             <%!-- Now indicator: one segment per row, so the stacked rows read
-                 as a single continuous vertical line --%>
+                 as a single continuous vertical line. z-10 keeps it UNDER the
+                 sticky labels (z-20); inset-inline-start mirrors under RTL. --%>
             <div
               :if={@now_pct}
-              class="cal-timeline-now-indicator absolute top-0 bottom-0 w-px bg-error z-20 pointer-events-none"
-              style={"left: #{@now_pct}%"}
+              class="cal-timeline-now-indicator absolute top-0 bottom-0 w-px bg-error z-10 pointer-events-none"
+              style={"inset-inline-start: #{@now_pct}%"}
               aria-hidden="true"
             >
             </div>
@@ -228,7 +247,13 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     start_pct = TimeSlots.time_to_percentage(start_time, min_time: min_time, max_time: max_time)
     end_pct = TimeSlots.time_to_percentage(end_time, min_time: min_time, max_time: max_time)
 
-    "left: #{start_pct}%; width: #{max(end_pct - start_pct, 2.0)}%"
+    # Width floor first, then pull the start back so the bar never overruns
+    # the track (an end-of-day stub at 99.31% + a 2% floor = 101.31% without
+    # this). inset-inline-start (not left) mirrors correctly under RTL.
+    width = max(end_pct - start_pct, 2.0)
+    start_pct = start_pct |> min(100.0 - width) |> max(0.0)
+
+    "inset-inline-start: #{start_pct}%; width: #{width}%"
   end
 
   # The times an event's bar occupies on the rendered date. With clamping,
@@ -264,25 +289,32 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   # fit_to_events: the visible window hugs the rendered events — earliest
   # start floored to the hour, latest end ceiled to the hour. All-day events
   # are excluded (they'd force a full 0–24 window and defeat the fit; they
-  # stretch across whatever window results). No timed events → the attrs.
+  # stretch across whatever window results), as are events without a rendered
+  # resource row (they never draw, so they must not stretch the axis).
+  # No timed events, or a degenerate/inverted computed window (zero-duration
+  # event on an exact hour; unclamped midnight-crossers) → the attrs, never
+  # a blank axis.
   defp visible_window(%{fit_to_events: false} = assigns, _events) do
     {assigns.min_time, assigns.max_time}
   end
 
   defp visible_window(assigns, events) do
+    rendered_resources = MapSet.new(assigns.resources, & &1.id)
+
     windows =
       events
       |> Enum.reject(&Event.all_day?/1)
+      |> Enum.filter(&MapSet.member?(rendered_resources, &1.resource_id))
       |> Enum.map(&event_window(&1, assigns.date, assigns.clamp_to_date))
 
-    case windows do
-      [] ->
-        {assigns.min_time, assigns.max_time}
-
-      _ ->
-        earliest = windows |> Enum.map(&elem(&1, 0)) |> Enum.min(Time)
-        latest = windows |> Enum.map(&elem(&1, 1)) |> Enum.max(Time)
-        {floor_to_hour(earliest), ceil_to_hour(latest)}
+    with [_ | _] <- windows,
+         earliest = windows |> Enum.map(&elem(&1, 0)) |> Enum.min(Time),
+         latest = windows |> Enum.map(&elem(&1, 1)) |> Enum.max(Time),
+         {min_time, max_time} = {floor_to_hour(earliest), ceil_to_hour(latest)},
+         :lt <- Time.compare(min_time, max_time) do
+      {min_time, max_time}
+    else
+      _ -> {assigns.min_time, assigns.max_time}
     end
   end
 
