@@ -229,6 +229,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           agenda_days={assigns[:agenda_days] || 30}
           year_columns={assigns[:year_columns] || 3}
           day_markers={assigns[:day_markers] || []}
+          filter_to_date={assigns[:filter_to_date] != false}
+          clamp_to_date={assigns[:clamp_to_date] != false}
+          sticky_resource_column={assigns[:sticky_resource_column] != false}
+          fit_to_events={assigns[:fit_to_events] || false}
           myself={@myself}
         />
       </div>
@@ -266,6 +270,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :agenda_days, :integer, required: true
   attr :year_columns, :integer, required: true
   attr :day_markers, :list, required: true
+  attr :filter_to_date, :boolean, default: true
+  attr :clamp_to_date, :boolean, default: true
+  attr :sticky_resource_column, :boolean, default: true
+  attr :fit_to_events, :boolean, default: false
   attr :myself, :any, required: true
 
   defp render_view(%{view: :month} = assigns) do
@@ -409,6 +417,12 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       min_time={@min_time}
       max_time={@max_time}
       slot_duration={@slot_duration}
+      filter_to_date={@filter_to_date}
+      clamp_to_date={@clamp_to_date}
+      sticky_resource_column={@sticky_resource_column}
+      fit_to_events={@fit_to_events}
+      show_now_indicator={@show_now_indicator}
+      today={@today}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       on_slot_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       translations={@translations}

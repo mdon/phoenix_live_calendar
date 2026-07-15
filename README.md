@@ -154,6 +154,13 @@ end
 | `dir` | atom | `:ltr` | Text direction (`:ltr` or `:rtl`) |
 | `translations` | map | `%{}` | Label overrides |
 | `business_hours` | list | `[]` | Availability windows to highlight |
+| `today` | Date | UTC today | Timezone-correct today; also seeds the starting month when `date` is unset |
+| `day_markers` | list | `[]` | `DayMarker` structs — cell tints + corner labels; a marker's own `color`/`text_color`/`class`/`show_label: false` enable heatmap-style month views |
+| `filter_to_date` | boolean | `true` | Timeline: only render events occupying the displayed date |
+| `clamp_to_date` | boolean | `true` | Timeline: clamp midnight-crossing events to the displayed date (23:50→00:20 renders on both days correctly) |
+| `sticky_resource_column` | boolean | `true` | Timeline: pin the resource label column during horizontal scroll |
+| `fit_to_events` | boolean | `false` | Timeline: size the visible window to the rendered events (hour-rounded) instead of `min_time`/`max_time` |
+| `show_now_indicator` | boolean | `true` | Current-time line in day/week/timeline views when showing today |
 
 ## Callbacks
 
