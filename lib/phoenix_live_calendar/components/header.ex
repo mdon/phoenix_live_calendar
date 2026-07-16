@@ -65,27 +65,12 @@ defmodule PhoenixLiveCalendar.Components.Header do
       "Optional content for an info (ⓘ) disclosure shown at the end of the toolbar — e.g. a key explaining the calendar's markings. Rendered as a no-JS <details> popover."
 
   def header(assigns) do
-    show_today =
-      case assigns.show_today_button do
-        :auto -> not assigns.today_visible
-        true -> true
-        false -> false
-      end
-
-    left_wing? = assigns.help != [] or assigns.toolbar_start != [] or show_today
-
-    right_wing? =
-      assigns.toolbar_end != [] or
-        (assigns.on_view_change != nil and length(assigns.views) > 1)
-
-    start_layout? =
-      assigns.layout == :start or
-        (assigns.layout == :auto and not left_wing? and not right_wing?)
+    show_today = show_today?(assigns.show_today_button, assigns.today_visible)
 
     assigns =
       assigns
       |> assign(:show_today, show_today)
-      |> assign(:start_layout?, start_layout?)
+      |> assign(:start_layout?, start_layout?(assigns, show_today))
 
     ~H"""
     <div
@@ -206,6 +191,23 @@ defmodule PhoenixLiveCalendar.Components.Header do
     </div>
     """
   end
+
+  defp show_today?(:auto, today_visible), do: not today_visible
+  defp show_today?(setting, _today_visible), do: setting == true
+
+  defp start_layout?(%{layout: :start}, _show_today), do: true
+
+  defp start_layout?(%{layout: :auto} = assigns, show_today) do
+    left_wing? = assigns.help != [] or assigns.toolbar_start != [] or show_today
+
+    right_wing? =
+      assigns.toolbar_end != [] or
+        (assigns.on_view_change != nil and length(assigns.views) > 1)
+
+    not left_wing? and not right_wing?
+  end
+
+  defp start_layout?(_assigns, _show_today), do: false
 
   # The serialized value the switcher button sends. A `{:n_day, n}` view is
   # a tuple — not attribute-safe — so it flattens to "n_day" (the component's

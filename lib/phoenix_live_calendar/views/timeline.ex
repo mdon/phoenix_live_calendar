@@ -308,24 +308,10 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   end
 
   defp decide_label(bar, assigns, track_rem, bar_spans, label_spans) do
-    bar_rem = bar.width / 100 * track_rem
     style = "inset-inline-start: #{bar.start}%; width: #{bar.width}%"
     title = bar.event.title || ""
 
-    # the inside content is "HH:MM Title" — ~6 extra characters
-    inside_rem = Utils.Sizing.label_rem(title) + 6 * 0.45
-    inside_fits? = bar_rem >= inside_rem * assigns.label_fit_ratio and bar_rem >= 2.0
-
-    mode =
-      case assigns.label_position do
-        :none -> :none
-        :inside -> :inside
-        :outside -> :outside
-        :fit when inside_fits? -> :inside
-        :fit -> assigns.label_fit_fallback
-      end
-
-    case mode do
+    case label_mode(bar, assigns, track_rem, title) do
       :inside ->
         {%{event: bar.event, style: style, content: :inline, label: nil}, label_spans}
 
@@ -333,37 +319,51 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
         {%{event: bar.event, style: style, content: :none, label: nil}, label_spans}
 
       :outside ->
-        label_pct = min(Utils.Sizing.label_rem(title) / track_rem * 100, 25.0)
-        taken = bar_spans ++ label_spans
-        bar_end = bar.start + bar.width
+        place_outside(bar, style, title, track_rem, bar_spans, label_spans)
+    end
+  end
 
-        cond do
-          title == "" ->
-            {%{event: bar.event, style: style, content: :none, label: nil}, label_spans}
+  defp label_mode(_bar, %{label_position: :none}, _track_rem, _title), do: :none
+  defp label_mode(_bar, %{label_position: :inside}, _track_rem, _title), do: :inside
+  defp label_mode(_bar, %{label_position: :outside}, _track_rem, _title), do: :outside
 
-          free?(bar_end + 0.3, bar_end + 0.3 + label_pct, taken) ->
-            span = {bar_end + 0.3, bar_end + 0.3 + label_pct}
+  defp label_mode(bar, %{label_position: :fit} = assigns, track_rem, title) do
+    bar_rem = bar.width / 100 * track_rem
 
-            {%{
-               event: bar.event,
-               style: style,
-               content: :none,
-               label: %{at: bar_end + 0.3, max_w: label_pct, text: title}
-             }, [span | label_spans]}
+    # the inside content is "HH:MM Title" — ~6 extra characters
+    inside_rem = Utils.Sizing.label_rem(title) + 6 * 0.45
 
-          free?(bar.start - 0.3 - label_pct, bar.start - 0.3, taken) ->
-            span = {bar.start - 0.3 - label_pct, bar.start - 0.3}
+    if bar_rem >= inside_rem * assigns.label_fit_ratio and bar_rem >= 2.0,
+      do: :inside,
+      else: assigns.label_fit_fallback
+  end
 
-            {%{
-               event: bar.event,
-               style: style,
-               content: :none,
-               label: %{at: bar.start - 0.3 - label_pct, max_w: label_pct, text: title}
-             }, [span | label_spans]}
+  # After the bar's end, flipped before it at the track edge, suppressed
+  # when neither gap is free — never overprinting a bar or another label.
+  defp place_outside(bar, style, title, track_rem, bar_spans, label_spans) do
+    label_pct = min(Utils.Sizing.label_rem(title) / track_rem * 100, 25.0)
+    taken = bar_spans ++ label_spans
+    bar_end = bar.start + bar.width
 
-          true ->
-            {%{event: bar.event, style: style, content: :none, label: nil}, label_spans}
-        end
+    candidates =
+      if title == "",
+        do: [],
+        else: [
+          {bar_end + 0.3, bar_end + 0.3 + label_pct},
+          {bar.start - 0.3 - label_pct, bar.start - 0.3}
+        ]
+
+    case Enum.find(candidates, fn {from, to} -> free?(from, to, taken) end) do
+      nil ->
+        {%{event: bar.event, style: style, content: :none, label: nil}, label_spans}
+
+      {from, to} = span ->
+        {%{
+           event: bar.event,
+           style: style,
+           content: :none,
+           label: %{at: from, max_w: to - from, text: title}
+         }, [span | label_spans]}
     end
   end
 

@@ -9,7 +9,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
   alias PhoenixLiveCalendar.Components.{EventItem, TimeGutter}
   alias PhoenixLiveCalendar.Event
-  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, OverlapLayout, TimeSlots}
+  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, OverlapLayout, Safe, Sizing, TimeSlots}
 
   @doc """
   Renders a week/day/N-day time grid.
@@ -115,9 +115,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
     # Estimated rem of block height per event minute — drives the content
     # ladder (server-side substitute for measuring the block).
-    rem_per_minute =
-      PhoenixLiveCalendar.Utils.Sizing.parse_rem(assigns.slot_height, 3.0) /
-        max(assigns.slot_duration, 1)
+    rem_per_minute = Sizing.parse_rem(assigns.slot_height, 3.0) / max(assigns.slot_duration, 1)
 
     markers_by_date =
       PhoenixLiveCalendar.DayMarker.group_by_date(assigns.day_markers, assigns.dates)
@@ -274,7 +272,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 "cal-time-slot border-b border-base-200",
                 slot_business_class(date, slot, @business_hours)
               ]}
-              style={"height: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@slot_height)}"}
+              style={"height: #{Safe.sanitize_css_dimension(@slot_height)}"}
               phx-click={@on_time_click}
               phx-value-date={Date.to_iso8601(date)}
               phx-value-time={Time.to_iso8601(slot)}
@@ -451,7 +449,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     # A rem floor (one text line by default) instead of the old 1.5% floor,
     # whose real size depended on the window; the top clamp keeps a floored
     # bottom-edge block inside the track.
-    case PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(min_height) do
+    case Safe.sanitize_css_dimension(min_height) do
       floor when floor in [nil, "0", "0px", "0rem"] ->
         "top: #{top}%; height: #{height}%; #{h_style}"
 
