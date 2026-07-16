@@ -2,6 +2,7 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
   use ExUnit.Case, async: true
 
   import Phoenix.LiveViewTest, only: [rendered_to_string: 1]
+  import Phoenix.Component, only: [sigil_H: 2]
   import ExUnit.CaptureLog, only: [with_log: 1]
 
   alias Phoenix.Component
@@ -433,9 +434,89 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     end
   end
 
+  describe "slot forwarding" do
+    # The views always had :event/:day_cell/... slots, but the documented
+    # entrypoint declared none and never forwarded them — wrapper users
+    # could not customize event rendering at all.
+    test "the :event slot reaches the month grid" do
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~D[2026-06-10],
+        title: "Holiday",
+        all_day: true
+      }
+
+      html = render_html(:month, %{events: [event], event: [event_slot()]})
+
+      assert html =~ "custom-event-slot"
+      assert html =~ "Holiday!!"
+    end
+
+    test "the :event slot reaches the week grid and the timeline" do
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~U[2026-06-15 10:00:00Z],
+        end: ~U[2026-06-15 11:00:00Z],
+        title: "Meeting",
+        resource_id: "r1"
+      }
+
+      week_html = render_html(:week, %{events: [event], event: [event_slot()]})
+      assert week_html =~ "Meeting!!"
+
+      timeline_html =
+        render_html(:timeline, %{
+          events: [event],
+          resources: [%PhoenixLiveCalendar.Resource{id: "r1", title: "Room A"}],
+          event: [event_slot()]
+        })
+
+      assert timeline_html =~ "Meeting!!"
+    end
+
+    test "the :day_cell slot replaces month cells" do
+      day_cell = %{
+        __slot__: :day_cell,
+        inner_block: fn _index, %{date: date} ->
+          assigns = %{date: date}
+          ~H|<span class="custom-day-cell">{@date.day}</span>|
+        end
+      }
+
+      html = render_html(:month, %{day_cell: [day_cell]})
+
+      assert html =~ "custom-day-cell"
+    end
+
+    test "no slots passed renders the default markup unchanged" do
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~D[2026-06-10],
+        title: "Holiday",
+        all_day: true
+      }
+
+      html = render_html(:month, %{events: [event]})
+
+      assert html =~ "Holiday"
+      refute html =~ "custom-event-slot"
+    end
+  end
+
   # -- helpers --
 
   defp cb(pid, tag), do: fn data -> send(pid, {tag, data}) end
+
+  # A hand-built slot entry (what the ~H engine produces for <:event :let={e}>).
+  defp event_slot do
+    %{
+      __slot__: :event,
+      inner_block: fn _index, event ->
+        assigns = %{event: event}
+        ~H|<span class="custom-event-slot">{@event.title}!!</span>|
+      end
+    }
+  end
 
   defp render_html(view, extra \\ %{}) do
     base = %{

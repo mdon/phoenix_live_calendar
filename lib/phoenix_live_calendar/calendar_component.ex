@@ -40,6 +40,26 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
         on_event_drop={fn data -> send(self(), {:event_dropped, data}) end}
         on_view_change={fn data -> send(self(), {:view_changed, data}) end}
       />
+
+  ## Slots
+
+  The underlying views' customization slots are forwarded through the
+  component — pass them as `<.live_component>` children:
+
+      <.live_component module={PhoenixLiveCalendar.CalendarComponent} id="cal" events={@events}>
+        <:event :let={event}>
+          <.my_event_chip event={event} />
+        </:event>
+      </.live_component>
+
+  - `:event` — custom event rendering (month, week, day, N-day, agenda,
+    timeline, resource)
+  - `:day_cell` — full month day-cell replacement (receives
+    `%{date: date, events: events, markers: markers}`)
+  - `:time_label` — time gutter labels (week, day, N-day)
+  - `:resource_label` / `:resource_header` — timeline / resource column labels
+  - `:day_header` / `:no_events` — agenda day headings and empty state
+  - `:info` — toolbar info (ⓘ) disclosure content
   """
 
   use Phoenix.LiveComponent
@@ -240,7 +260,25 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           sticky_resource_column={assigns[:sticky_resource_column] != false}
           fit_to_events={assigns[:fit_to_events] || false}
           myself={@myself}
-        />
+        >
+          <:event :let={e} :if={assigns[:event] not in [nil, []]}>{render_slot(@event, e)}</:event>
+          <:day_cell :let={d} :if={assigns[:day_cell] not in [nil, []]}>
+            {render_slot(@day_cell, d)}
+          </:day_cell>
+          <:time_label :let={t} :if={assigns[:time_label] not in [nil, []]}>
+            {render_slot(@time_label, t)}
+          </:time_label>
+          <:resource_label :let={r} :if={assigns[:resource_label] not in [nil, []]}>
+            {render_slot(@resource_label, r)}
+          </:resource_label>
+          <:resource_header :let={r} :if={assigns[:resource_header] not in [nil, []]}>
+            {render_slot(@resource_header, r)}
+          </:resource_header>
+          <:day_header :let={d} :if={assigns[:day_header] not in [nil, []]}>
+            {render_slot(@day_header, d)}
+          </:day_header>
+          <:no_events :if={assigns[:no_events] not in [nil, []]}>{render_slot(@no_events)}</:no_events>
+        </.render_view>
       </div>
     </div>
     """
@@ -288,6 +326,14 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :fit_to_events, :boolean, default: false
   attr :myself, :any, required: true
 
+  slot :event
+  slot :day_cell
+  slot :time_label
+  slot :resource_label
+  slot :resource_header
+  slot :day_header
+  slot :no_events
+
   defp render_view(%{view: :month} = assigns) do
     ~H"""
     <MonthGrid.month_grid
@@ -313,7 +359,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       translations={@translations}
       time_format={@time_format}
       dir={@dir}
-    />
+    >
+      <:event :let={e} :if={@event != []}>{render_slot(@event, e)}</:event>
+      <:day_cell :let={d} :if={@day_cell != []}>{render_slot(@day_cell, d)}</:day_cell>
+    </MonthGrid.month_grid>
     """
   end
 
@@ -341,7 +390,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       translations={@translations}
       time_format={@time_format}
       dir={@dir}
-    />
+    >
+      <:event :let={e} :if={@event != []}>{render_slot(@event, e)}</:event>
+      <:time_label :let={t} :if={@time_label != []}>{render_slot(@time_label, t)}</:time_label>
+    </WeekGrid.week_grid>
     """
   end
 
@@ -365,7 +417,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       translations={@translations}
       time_format={@time_format}
       dir={@dir}
-    />
+    >
+      <:event :let={e} :if={@event != []}>{render_slot(@event, e)}</:event>
+      <:time_label :let={t} :if={@time_label != []}>{render_slot(@time_label, t)}</:time_label>
+    </DayView.day_view>
     """
   end
 
@@ -390,7 +445,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       translations={@translations}
       time_format={@time_format}
       dir={@dir}
-    />
+    >
+      <:event :let={e} :if={@event != []}>{render_slot(@event, e)}</:event>
+      <:time_label :let={t} :if={@time_label != []}>{render_slot(@time_label, t)}</:time_label>
+    </NDayView.n_day_view>
     """
   end
 
@@ -420,7 +478,11 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
       translations={@translations}
       time_format={@time_format}
-    />
+    >
+      <:event :let={e} :if={@event != []}>{render_slot(@event, e)}</:event>
+      <:day_header :let={d} :if={@day_header != []}>{render_slot(@day_header, d)}</:day_header>
+      <:no_events :if={@no_events != []}>{render_slot(@no_events)}</:no_events>
+    </Agenda.agenda>
     """
   end
 
@@ -447,7 +509,12 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       translations={@translations}
       time_format={@time_format}
       dir={@dir}
-    />
+    >
+      <:event :let={e} :if={@event != []}>{render_slot(@event, e)}</:event>
+      <:resource_label :let={r} :if={@resource_label != []}>
+        {render_slot(@resource_label, r)}
+      </:resource_label>
+    </Timeline.timeline>
     """
   end
 
@@ -467,7 +534,12 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       translations={@translations}
       time_format={@time_format}
-    />
+    >
+      <:event :let={e} :if={@event != []}>{render_slot(@event, e)}</:event>
+      <:resource_header :let={r} :if={@resource_header != []}>
+        {render_slot(@resource_header, r)}
+      </:resource_header>
+    </ResourceView.resource_view>
     """
   end
 
