@@ -137,6 +137,14 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   @title_min_rem 1.25
 
   @doc """
+  Per-view-instance suffix for event DOM ids: two views rendering the same
+  events on one page pass their own `id` so per-event ids can't collide.
+  """
+  @spec instance_suffix(String.t() | nil, String.t() | term()) :: String.t() | term()
+  def instance_suffix(nil, key), do: key
+  def instance_suffix(id, key), do: "#{id}-#{key}"
+
+  @doc """
   The content tier for an event block of an estimated height (rem):
   `:detail` ≥ #{@detail_min_rem}, `:inline` ≥ #{@inline_min_rem},
   `:title` ≥ #{@title_min_rem}, else `:none` — whole text lines or none.

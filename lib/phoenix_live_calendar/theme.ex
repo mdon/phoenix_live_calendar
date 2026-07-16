@@ -93,6 +93,15 @@ defmodule PhoenixLiveCalendar.Theme do
     {bg, text}
   end
 
+  @doc """
+  `event_colors/2` as a class list — the one-liner every bar render uses.
+  """
+  @spec event_color_classes(Event.t(), String.t()) :: [String.t()]
+  def event_color_classes(%Event{} = event, default_bg \\ "bg-primary") do
+    {bg, text} = event_colors(event, default_bg)
+    [bg, text]
+  end
+
   defp custom_tokens do
     Application.get_env(:phoenix_live_calendar, :color_tokens, %{})
   end

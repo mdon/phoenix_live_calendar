@@ -420,9 +420,9 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       show_weekends={@show_weekends}
       fixed_weeks={@fixed_weeks}
       id={@id && "#{@id}-month"}
-      max_multiday={assigns[:max_multiday]}
-      expand_cells={assigns[:expand_cells] || false}
-      respect_hours={assigns[:respect_hours] || false}
+      max_multiday={@max_multiday}
+      expand_cells={@expand_cells}
+      respect_hours={@respect_hours}
       marker_ticker={@marker_ticker}
       marker_ticker_interval={@marker_ticker_interval}
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
@@ -660,7 +660,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
 
     new_date =
       Safe.safe_call(
-        fn -> DateHelpers.shift(date, normalize_view(view), direction_atom) end,
+        fn -> DateHelpers.shift(date, view, direction_atom) end,
         date
       )
 
@@ -869,7 +869,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
 
         {range_start, range_end} =
           DateHelpers.visible_range(
-            normalize_view(assigns.internal_view),
+            assigns.internal_view,
             assigns.internal_date,
             opts
           )
@@ -971,16 +971,16 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     end
   end
 
-  # Profile event data at ingress — runs once per update, measures size and memory
+  # Profile event data at ingress — runs once per update; emits telemetry
+  # only (nothing stored: the old :_perf assign had no readers).
   defp maybe_profile_ingress(assigns, socket) do
     if Map.has_key?(assigns, :events) do
       events = assigns[:events] || []
       view = socket.assigns[:internal_view] || assigns[:view] || :unknown
-      {count, bytes} = Telemetry.profile_ingress(events, view)
-      Map.put(assigns, :_perf, %{event_count: count, estimated_bytes: bytes})
-    else
-      assigns
+      Telemetry.profile_ingress(events, view)
     end
+
+    assigns
   end
 
   defp assign_defaults(assigns) do
@@ -1004,9 +1004,6 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
 
     assign(assigns, :title, title)
   end
-
-  defp normalize_view({:n_day, _} = v), do: v
-  defp normalize_view(v), do: v
 
   # The switcher sends "n_day" as a flat string (a tuple isn't attribute-safe);
   # the internal representation carries the day count, so rehydrate it here.
@@ -1087,7 +1084,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       view = assigns.internal_view
       date = assigns.internal_date
       opts = [week_start: assigns[:week_start] || 1]
-      {range_start, range_end} = DateHelpers.visible_range(normalize_view(view), date, opts)
+      {range_start, range_end} = DateHelpers.visible_range(view, date, opts)
       Date.compare(today, range_start) != :lt and Date.compare(today, range_end) == :lt
     else
       false
@@ -1112,7 +1109,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       days: Map.get(socket.assigns, :agenda_days) || 30
     ]
 
-    {start_date, end_date} = DateHelpers.visible_range(normalize_view(view), date, opts)
+    {start_date, end_date} = DateHelpers.visible_range(view, date, opts)
 
     notify_callback(socket, :on_date_range_change, %{
       start: start_date,

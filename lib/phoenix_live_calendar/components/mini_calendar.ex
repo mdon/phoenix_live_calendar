@@ -148,12 +148,10 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
 
   # First :dot-style heatmap class for the date, if any.
   defp mini_dot(markers) do
-    Enum.find_value(markers, fn marker ->
-      case marker.extra do
-        %{heatmap: %{style: :dot, class: class}} -> class
-        _ -> nil
-      end
-    end)
+    case PhoenixLiveCalendar.DayMarker.dot(markers) do
+      %{class: class} -> class
+      nil -> nil
+    end
   end
 
   # First custom marker color for the date, plus a hook class. Type-based

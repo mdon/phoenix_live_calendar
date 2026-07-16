@@ -230,6 +230,21 @@ defmodule PhoenixLiveCalendar.DayMarker do
   def chip_class(_marker), do: "bg-base-200 text-base-content/60"
 
   @doc """
+  The first `:dot`-style heatmap marker for a day, as
+  `%{class: intensity_class, title: label}` — or `nil`. Views render it as
+  a small corner/inline dot instead of a cell tint.
+  """
+  @spec dot([t()]) :: %{class: String.t(), title: String.t() | nil} | nil
+  def dot(markers) do
+    Enum.find_value(markers, fn marker ->
+      case marker.extra do
+        %{heatmap: %{style: :dot, class: class}} -> %{class: class, title: marker.label}
+        _ -> nil
+      end
+    end)
+  end
+
+  @doc """
   Markers that want a visible label chip (`show_label` and a non-nil label).
   """
   @spec labeled([t()]) :: [t()]

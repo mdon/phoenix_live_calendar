@@ -133,6 +133,14 @@ defmodule PhoenixLiveCalendar.Utils.DateHelpers do
   end
 
   @doc """
+  Coerces a Date/DateTime/NaiveDateTime to its calendar date.
+  """
+  @spec to_date(Date.t() | DateTime.t() | NaiveDateTime.t()) :: Date.t()
+  def to_date(%Date{} = d), do: d
+  def to_date(%DateTime{} = dt), do: DateTime.to_date(dt)
+  def to_date(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_date(ndt)
+
+  @doc """
   Returns the visible date range for a given view and anchor date.
 
   Returns `{start_date, end_date}` (inclusive start, exclusive end).

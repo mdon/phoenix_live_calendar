@@ -190,7 +190,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
                     content={
                       event_tier(event, @date, @event_content, @min_time, @max_time, @rem_per_minute)
                     }
-                    id_suffix={instance_suffix(@id, resource.id)}
+                    id_suffix={EventItem.instance_suffix(@id, resource.id)}
                     on_click={@on_event_click}
                     time_format={@time_format}
                     default_color="bg-primary/80"
@@ -235,7 +235,4 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
   end
 
   defp event_tier(_event, _date, forced, _min, _max, _rpm), do: forced
-
-  defp instance_suffix(nil, key), do: key
-  defp instance_suffix(id, key), do: "#{id}-#{key}"
 end

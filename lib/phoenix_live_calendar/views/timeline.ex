@@ -20,6 +20,20 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   @day_start ~T[00:00:00]
   @day_end ~T[23:59:59]
 
+  # Label-placement geometry (all estimates; see Utils.Sizing):
+  # width floor so a zero-length stub stays clickable
+  @min_bar_width_pct 2.0
+  # never place an inside label in a bar narrower than this
+  @min_inside_bar_rem 2.0
+  # the inside content is "HH:MM Title" — the time prefix's character cost
+  @time_prefix_chars 6
+  # gap between a bar and its outside label
+  @label_gap_pct 0.3
+  # an outside label never exceeds this share of the track
+  @outside_label_max_pct 25.0
+  # interval-overlap tolerance for exact-touch neighbours
+  @span_epsilon 0.01
+
   @doc """
   Renders a horizontal timeline with resource rows.
 
@@ -256,7 +270,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
                   <EventItem.event_item
                     event={bar.event}
                     content={bar.content}
-                    id_suffix={instance_suffix(@id, resource.id)}
+                    id_suffix={EventItem.instance_suffix(@id, resource.id)}
                     on_click={@on_event_click}
                     default_color="bg-primary/80"
                     class="h-full text-xs rounded px-1"
@@ -280,9 +294,6 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     </div>
     """
   end
-
-  defp instance_suffix(nil, key), do: key
-  defp instance_suffix(id, key), do: "#{id}-#{key}"
 
   # Lay out one resource row: bar geometry, per-bar content tier, and
   # outside-label placement with a greedy no-overprint guard.
@@ -330,10 +341,9 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   defp label_mode(bar, %{label_position: :fit} = assigns, track_rem, title) do
     bar_rem = bar.width / 100 * track_rem
 
-    # the inside content is "HH:MM Title" — ~6 extra characters
-    inside_rem = Utils.Sizing.label_rem(title) + 6 * 0.45
+    inside_rem = Utils.Sizing.label_rem(title) + @time_prefix_chars * 0.45
 
-    if bar_rem >= inside_rem * assigns.label_fit_ratio and bar_rem >= 2.0,
+    if bar_rem >= inside_rem * assigns.label_fit_ratio and bar_rem >= @min_inside_bar_rem,
       do: :inside,
       else: assigns.label_fit_fallback
   end
@@ -341,7 +351,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   # After the bar's end, flipped before it at the track edge, suppressed
   # when neither gap is free — never overprinting a bar or another label.
   defp place_outside(bar, style, title, track_rem, bar_spans, label_spans) do
-    label_pct = min(Utils.Sizing.label_rem(title) / track_rem * 100, 25.0)
+    label_pct = min(Utils.Sizing.label_rem(title) / track_rem * 100, @outside_label_max_pct)
     taken = bar_spans ++ label_spans
     bar_end = bar.start + bar.width
 
@@ -349,8 +359,8 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
       if title == "",
         do: [],
         else: [
-          {bar_end + 0.3, bar_end + 0.3 + label_pct},
-          {bar.start - 0.3 - label_pct, bar.start - 0.3}
+          {bar_end + @label_gap_pct, bar_end + @label_gap_pct + label_pct},
+          {bar.start - @label_gap_pct - label_pct, bar.start - @label_gap_pct}
         ]
 
     case Enum.find(candidates, fn {from, to} -> free?(from, to, taken) end) do
@@ -370,7 +380,9 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   # No overlap with any reserved interval, and inside the track.
   defp free?(from, to, taken) do
     from >= 0.0 and to <= 100.0 and
-      not Enum.any?(taken, fn {a, b} -> from < b - 0.01 and to > a + 0.01 end)
+      not Enum.any?(taken, fn {a, b} ->
+        from < b - @span_epsilon and to > a + @span_epsilon
+      end)
   end
 
   defp bar_geometry(event, date, min_time, max_time, clamp) do
@@ -382,7 +394,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     # Width floor first, then pull the start back so the bar never overruns
     # the track (an end-of-day stub at 99.31% + a 2% floor = 101.31% without
     # this). inset-inline-start (not left) mirrors correctly under RTL.
-    width = max(end_pct - start_pct, 2.0)
+    width = max(end_pct - start_pct, @min_bar_width_pct)
     start_pct = start_pct |> min(100.0 - width) |> max(0.0)
 
     {start_pct, width}
@@ -402,12 +414,12 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
         event_end = Event.effective_end(event)
 
         start_time =
-          if Date.compare(to_date(event.start), date) == :lt,
+          if Date.compare(Utils.DateHelpers.to_date(event.start), date) == :lt,
             do: @day_start,
             else: TimeSlots.to_time(event.start)
 
         end_time =
-          if Date.compare(to_date(event_end), date) == :gt,
+          if Date.compare(Utils.DateHelpers.to_date(event_end), date) == :gt,
             do: @day_end,
             else: TimeSlots.to_time(event_end)
 
@@ -455,8 +467,4 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   defp ceil_to_hour(%Time{minute: 0, second: 0} = t), do: t
   defp ceil_to_hour(%Time{hour: 23}), do: @day_end
   defp ceil_to_hour(%Time{} = t), do: Time.new!(t.hour + 1, 0, 0)
-
-  defp to_date(%Date{} = d), do: d
-  defp to_date(%DateTime{} = dt), do: DateTime.to_date(dt)
-  defp to_date(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_date(ndt)
 end

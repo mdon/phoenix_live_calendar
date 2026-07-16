@@ -232,7 +232,7 @@ defmodule PhoenixLiveCalendar.Components.Header do
   defp view_label(:year, t), do: I18n.label(:year, t)
   defp view_label(:agenda, t), do: I18n.label(:agenda, t)
   defp view_label(:timeline, t), do: I18n.label(:timeline, t)
-  defp view_label({:n_day, n}, _t), do: "#{n} Day"
+  defp view_label({:n_day, n}, t), do: I18n.label(:n_day, t, %{count: n})
   defp view_label(v, _t), do: to_string(v)
 
   defp nav_label(:prev, :month, t), do: I18n.label(:prev_month, t)

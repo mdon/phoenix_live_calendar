@@ -233,7 +233,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
               <.marker_ticker
                 id_prefix={@id}
                 day={day}
-                markers={labeled_markers(Map.get(@markers_by_date, day, []))}
+                markers={PhoenixLiveCalendar.DayMarker.labeled(Map.get(@markers_by_date, day, []))}
                 enabled={@marker_ticker}
                 interval={@marker_ticker_interval}
               />
@@ -272,7 +272,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                   <div
                     class={[
                       "cal-multiday-bar h-3.5 text-[0.6rem] leading-tight font-medium truncate cursor-pointer px-1 flex items-center",
-                      event_bar_colors(event),
+                      PhoenixLiveCalendar.Theme.event_color_classes(event),
                       multiday_rounding_class(is_start, is_end),
                       event.status == :cancelled && "opacity-50 line-through",
                       event.class,
@@ -305,10 +305,10 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                 <% @respect_hours and not PhoenixLiveCalendar.Event.all_day?(event) -> %>
                   <% {gl, gw} = bar_geometry(event, true, true) %>
                   <div
-                    id={"cal-event-#{event.id}-#{instance_suffix(@id, Date.to_iso8601(day))}"}
+                    id={"cal-event-#{event.id}-#{EventItem.instance_suffix(@id, Date.to_iso8601(day))}"}
                     class={[
                       "cal-event cal-event-timed h-3.5 mt-px text-[0.6rem] leading-tight font-medium truncate cursor-pointer px-1 rounded flex items-center",
-                      event_bar_colors(event),
+                      PhoenixLiveCalendar.Theme.event_color_classes(event),
                       event.status == :cancelled && "opacity-50 line-through",
                       event.class
                     ]}
@@ -324,7 +324,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                   <div class="mx-1 mt-px">
                     <EventItem.event_item
                       event={event}
-                      id_suffix={instance_suffix(@id, Date.to_iso8601(day))}
+                      id_suffix={EventItem.instance_suffix(@id, Date.to_iso8601(day))}
                       on_click={@on_event_click}
                       compact={true}
                       time_format={@time_format}
@@ -386,7 +386,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     |> Enum.find(&PhoenixLiveCalendar.Event.on_date?(&1, day))
     |> case do
       nil -> {:spacer, idx}
-      event -> {event, event_start_date(event) == day, event_is_last_day?(event, day)}
+      event -> {event, Event.first_date(event) == day, event_is_last_day?(event, day)}
     end
   end
 
@@ -539,7 +539,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     <span
       class={[
         "cal-marker-label text-[0.55rem] leading-none px-1 py-px rounded font-medium truncate",
-        marker_chip_class(hd(@markers))
+        PhoenixLiveCalendar.DayMarker.chip_class(hd(@markers))
       ]}
       title={hd(@markers).description || hd(@markers).label}
     >
@@ -555,7 +555,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     <span
       class={[
         "cal-marker-label text-[0.55rem] leading-none px-1 py-px rounded font-medium truncate",
-        marker_chip_class(hd(@markers))
+        PhoenixLiveCalendar.DayMarker.chip_class(hd(@markers))
       ]}
       title={hd(@markers).description || hd(@markers).label}
     >
@@ -583,7 +583,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
         :for={{marker, idx} <- Enum.with_index(@markers)}
         class={[
           "col-start-1 row-start-1 cal-marker-label flex items-center text-[0.55rem] leading-none px-1 py-px rounded font-medium truncate transition-opacity duration-300",
-          marker_chip_class(marker),
+          PhoenixLiveCalendar.DayMarker.chip_class(marker),
           if(idx == 0, do: "opacity-100", else: "opacity-0 pointer-events-none")
         ]}
         data-ticker-index={idx}
@@ -595,13 +595,6 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     </div>
     """
   end
-
-  # Markers that want a corner label chip. `show_label: false` (or a nil
-  # label) renders only the cell tint — the heatmap case.
-  defp labeled_markers(markers), do: PhoenixLiveCalendar.DayMarker.labeled(markers)
-
-  # A marker's own chip styling wins; type-based colors are the fallback.
-  defp marker_chip_class(marker), do: PhoenixLiveCalendar.DayMarker.chip_class(marker)
 
   # -- Slot computation --
   # Assigns a consistent row index to each multi-day event across all days of the week
@@ -620,7 +613,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
       multi_day_events
       |> Enum.filter(&Event.overlaps_range?(&1, week_start, week_end))
       |> Enum.sort_by(fn e ->
-        {slot_priority(e), event_start_date(e), -Event.duration_seconds(e)}
+        {slot_priority(e), Event.first_date(e), -Event.duration_seconds(e)}
       end)
 
     if active == [] do
@@ -662,15 +655,12 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   defp occupied_slot_indices(assignments, event) do
     assignments
     |> Map.values()
-    |> Enum.filter(fn {other_event, _slot_idx} -> events_overlap_dates?(event, other_event) end)
+    |> Enum.filter(fn {other_event, _slot_idx} -> Event.dates_overlap?(event, other_event) end)
     |> Enum.map(fn {_event, slot_idx} -> slot_idx end)
     |> MapSet.new()
   end
 
   # -- Private helpers --
-
-  defp instance_suffix(nil, key), do: key
-  defp instance_suffix(id, key), do: "#{id}-#{key}"
 
   # A marker's own `color` owns the cell background: it replaces the
   # weekend/out-of-month tint AND the type-based marker tint (stacking two
@@ -680,7 +670,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   # layering rule: marker color under the today/selected indicator, over
   # the weekend tint).
   defp cell_classes(day, month_date, today, selected, markers) do
-    case marker_custom_color(markers) do
+    case PhoenixLiveCalendar.DayMarker.custom_color(markers) do
       nil -> plain_cell_classes(day, month_date, today, selected, markers)
       color -> marked_cell_classes(day, today, selected, color, markers)
     end
@@ -703,33 +693,21 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   defp marked_cell_classes(day, today, selected, color, markers) do
     [
       "cal-day-marked",
-      marker_semantic_class(markers),
+      PhoenixLiveCalendar.DayMarker.semantic_class(markers),
       color,
       day == today && "ring-2 ring-inset ring-primary",
       day == selected && day != today && "ring-2 ring-inset ring-secondary"
     ]
   end
 
-  # First custom cell color among the day's markers, if any.
-  defp marker_custom_color(markers), do: PhoenixLiveCalendar.DayMarker.custom_color(markers)
-
   # First :dot-style heatmap marker for the day, if any.
-  defp marker_dot(markers) do
-    Enum.find_value(markers, fn marker ->
-      case marker.extra do
-        %{heatmap: %{style: :dot, class: class}} -> %{class: class, title: marker.label}
-        _ -> nil
-      end
-    end)
-  end
-
-  # Semantic hook class for the day's markers (no bg utility).
-  defp marker_semantic_class(markers), do: PhoenixLiveCalendar.DayMarker.semantic_class(markers)
+  defp marker_dot(markers), do: PhoenixLiveCalendar.DayMarker.dot(markers)
 
   defp marker_bg_class([]), do: nil
 
   defp marker_bg_class(markers) do
-    case {marker_semantic_class(markers), PhoenixLiveCalendar.DayMarker.type_tint(markers)} do
+    case {PhoenixLiveCalendar.DayMarker.semantic_class(markers),
+          PhoenixLiveCalendar.DayMarker.type_tint(markers)} do
       {nil, _} -> nil
       {semantic, tint} -> [semantic, tint]
     end
@@ -748,23 +726,6 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     end
   end
 
-  # One merge rule for bar colors: resolved token/string bg (default
-  # bg-primary) + explicit text_color, else the token pair's text, else
-  # inferred from the APPLIED background (the old code inferred from the raw
-  # color, so a color-less bar got base-content text on a primary bg).
-  defp event_bar_colors(event) do
-    {bg, text} = PhoenixLiveCalendar.Theme.event_colors(event)
-    [bg, text]
-  end
-
-  defp event_start_date(%Event{} = e) do
-    case e.start do
-      %Date{} = d -> d
-      %DateTime{} = dt -> DateTime.to_date(dt)
-      %NaiveDateTime{} = ndt -> NaiveDateTime.to_date(ndt)
-    end
-  end
-
   defp event_is_last_day?(event, day) do
     # Use the SAME last-occupied date as on_date?, or the two disagree: a
     # timed event ending after midnight on its last day occupies that day
@@ -772,20 +733,6 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     # exclusive rule marked the PREVIOUS day as the end — so the real last
     # day rendered as a stray, un-capped stub.
     Date.compare(PhoenixLiveCalendar.Event.last_date(event), day) == :eq
-  end
-
-  # Compare INCLUSIVE last dates (Event.last_date/1) — the same occupancy rule
-  # on_date?/event_is_last_day? use. The old raw-end-date + strict :gt check
-  # treated a midnight-crossing timed event (22:00 → 01:00 next day) as ending
-  # a day early: it could share a slot with an event starting that next day,
-  # and slot_entry_for_day's Enum.find then silently dropped one segment.
-  defp events_overlap_dates?(a, b) do
-    a_start = event_start_date(a)
-    a_last = Event.last_date(a)
-    b_start = event_start_date(b)
-    b_last = Event.last_date(b)
-
-    Date.compare(a_start, b_last) != :gt and Date.compare(a_last, b_start) != :lt
   end
 
   defp filter_weekday_names(names, week_start) do

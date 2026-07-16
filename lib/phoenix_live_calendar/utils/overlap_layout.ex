@@ -21,6 +21,8 @@ defmodule PhoenixLiveCalendar.Utils.OverlapLayout do
   which the view uses to compute `left` and `width` CSS positioning.
   """
 
+  alias PhoenixLiveCalendar.Utils.DateHelpers
+
   alias PhoenixLiveCalendar.Event
   alias PhoenixLiveCalendar.Utils.Telemetry
 
@@ -154,9 +156,11 @@ defmodule PhoenixLiveCalendar.Utils.OverlapLayout do
 
   defp compare(%DateTime{} = a, %DateTime{} = b), do: DateTime.compare(a, b)
   defp compare(%NaiveDateTime{} = a, %NaiveDateTime{} = b), do: NaiveDateTime.compare(a, b)
-  defp compare(a, b), do: Date.compare(to_date(a), to_date(b))
 
-  defp to_date(%Date{} = d), do: d
-  defp to_date(%DateTime{} = dt), do: DateTime.to_date(dt)
-  defp to_date(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_date(ndt)
+  defp compare(a, b),
+    do:
+      Date.compare(
+        DateHelpers.to_date(a),
+        DateHelpers.to_date(b)
+      )
 end

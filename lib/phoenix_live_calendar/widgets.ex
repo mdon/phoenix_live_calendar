@@ -26,7 +26,7 @@ defmodule PhoenixLiveCalendar.Widgets do
   use Phoenix.Component
 
   alias PhoenixLiveCalendar.{Event, Heatmap, Theme}
-  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n}
+  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, TimeSlots}
   alias PhoenixLiveCalendar.Views.Timeline
 
   @doc """
@@ -360,12 +360,8 @@ defmodule PhoenixLiveCalendar.Widgets do
   end
 
   defp sort_key(event) do
-    {Date.to_gregorian_days(Event.first_date(event)), start_time_key(event.start)}
+    {Date.to_gregorian_days(Event.first_date(event)), TimeSlots.to_time(event.start)}
   end
-
-  defp start_time_key(%Date{}), do: ~T[00:00:00]
-  defp start_time_key(%DateTime{} = dt), do: DateTime.to_time(dt)
-  defp start_time_key(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_time(ndt)
 
   defp event_dot(event) do
     Theme.bg(event.color) || "bg-primary"
@@ -385,7 +381,7 @@ defmodule PhoenixLiveCalendar.Widgets do
         I18n.label(:all_day, translations)
 
       start_date == today ->
-        I18n.format_time(start_time_key(event.start), format: time_format)
+        I18n.format_time(TimeSlots.to_time(event.start), format: time_format)
 
       Date.diff(start_date, today) < 7 ->
         I18n.day_name_short(Date.day_of_week(start_date), translations)

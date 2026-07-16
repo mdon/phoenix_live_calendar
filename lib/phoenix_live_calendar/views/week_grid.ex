@@ -170,6 +170,16 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
             <div :if={!@on_date_click}>
               <.header_day_label date={date} today={@today} translations={@translations} />
             </div>
+            <%!-- Quiet heatmap variant: an intensity dot under the header --%>
+            <% heat_dot = PhoenixLiveCalendar.DayMarker.dot(Map.get(@markers_by_date, date, [])) %>
+            <div :if={heat_dot} class="flex justify-center pb-0.5">
+              <span
+                class={["cal-heat-dot w-1.5 h-1.5 rounded-full", heat_dot.class]}
+                title={heat_dot.title}
+                aria-hidden="true"
+              >
+              </span>
+            </div>
             <%!-- Day marker chips: the zoomed views have header room for them --%>
             <div
               :if={PhoenixLiveCalendar.DayMarker.labeled(Map.get(@markers_by_date, date, [])) != []}
@@ -228,7 +238,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 :for={{event, lane} <- lane_bars}
                 class={[
                   "cal-spanning-bar rounded-sm px-1 py-0.5 text-xs font-medium truncate cursor-pointer mx-px mb-px",
-                  event_bar_colors(event),
+                  PhoenixLiveCalendar.Theme.event_color_classes(event),
                   event.status == :cancelled && "opacity-50 line-through",
                   event.class
                 ]}
@@ -266,7 +276,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
             :for={date <- @dates}
             class={[
               "cal-day-column min-w-0 border-l border-base-200 relative",
-              day_column_classes(Map.get(@markers_by_date, date, []), date == @today)
+              day_column_classes(
+                Map.get(@markers_by_date, date, []),
+                date == @today,
+                date == @selected_date
+              )
             ]}
             data-date={Date.to_iso8601(date)}
           >
@@ -289,13 +303,15 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
             <div class="absolute inset-0 pointer-events-none">
               <% day_layout = Map.get(@overlap_layouts, date, %{}) %>
               <div
-                :for={event <- Map.get(@events_by_date, date, [])}
-                :if={day_window(event, date, @min_time, @max_time)}
+                :for={
+                  {event, window} <-
+                    day_segments(Map.get(@events_by_date, date, []), date, @min_time, @max_time)
+                }
                 class="absolute pointer-events-auto z-10"
                 style={
                   event_position_style_with_overlap(
                     event,
-                    date,
+                    window,
                     day_layout,
                     @min_time,
                     @max_time,
@@ -308,12 +324,10 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 <% else %>
                   <EventItem.event_item
                     event={event}
-                    id_suffix={instance_suffix(@id, Date.to_iso8601(date))}
+                    id_suffix={EventItem.instance_suffix(@id, Date.to_iso8601(date))}
                     on_click={@on_event_click}
                     time_format={@time_format}
-                    content={
-                      event_tier(event, date, @event_content, @min_time, @max_time, @rem_per_minute)
-                    }
+                    content={event_tier(window, @event_content, @rem_per_minute)}
                     default_color="bg-primary/80"
                     class="h-full text-xs border-l-2 border-primary"
                   />
@@ -336,11 +350,6 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   end
 
   # -- Private helpers --
-
-  # Per-instance event-id suffix: two views rendering the same events on one
-  # page need distinct DOM ids (same rule as the month grid's ticker ids).
-  defp instance_suffix(nil, key), do: key
-  defp instance_suffix(id, key), do: "#{id}-#{key}"
 
   attr :date, Date, required: true
   attr :today, Date, default: nil
@@ -379,7 +388,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     |> Enum.reduce([], fn event, placed ->
       taken =
         placed
-        |> Enum.filter(fn {other, _lane} -> allday_dates_overlap?(event, other) end)
+        |> Enum.filter(fn {other, _lane} -> Event.dates_overlap?(event, other) end)
         |> MapSet.new(fn {_other, lane} -> lane end)
 
       lane = Enum.find(Stream.iterate(0, &(&1 + 1)), &(not MapSet.member?(taken, &1)))
@@ -388,15 +397,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     |> Enum.reverse()
   end
 
-  defp allday_dates_overlap?(a, b) do
-    Date.compare(Event.first_date(a), Event.last_date(b)) != :gt and
-      Date.compare(Event.last_date(a), Event.first_date(b)) != :lt
-  end
-
   # Column background precedence: custom marker color (heatmap) > type tint >
-  # today tint — stacking two bg-* utilities resolves by stylesheet order,
-  # so exactly one is applied. The semantic hook class is always kept.
-  defp day_column_classes(markers, today?) do
+  # today tint > selected tint — stacking two bg-* utilities resolves by
+  # stylesheet order, so exactly one is applied. The semantic hook class is
+  # always kept.
+  defp day_column_classes(markers, today?, selected?) do
     custom = PhoenixLiveCalendar.DayMarker.custom_color(markers)
     tint = PhoenixLiveCalendar.DayMarker.type_tint(markers)
     semantic = PhoenixLiveCalendar.DayMarker.semantic_class(markers)
@@ -405,24 +410,30 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       custom -> ["cal-day-marked", semantic, custom]
       tint -> [semantic, tint]
       today? -> "bg-primary/5"
+      selected? -> "bg-secondary/5"
       true -> nil
     end
   end
 
-  # One merge rule for bar colors (see PhoenixLiveCalendar.Theme.event_colors/2).
-  defp event_bar_colors(event) do
-    {bg, text} = PhoenixLiveCalendar.Theme.event_colors(event)
-    [bg, text]
+  # Each day's renderable {event, window} pairs, computed ONCE per event
+  # (the segment used to be recomputed by the guard, the style and the tier).
+  defp day_segments(events, date, min_time, max_time) do
+    Enum.flat_map(events, fn event ->
+      case Event.day_window(event, date, min_time, max_time) do
+        nil -> []
+        window -> [{event, window}]
+      end
+    end)
   end
 
-  # Delegates to the shared per-day segment rule (see Event.day_window/4).
-  defp day_window(event, date, min_time, max_time) do
-    Event.day_window(event, date, min_time, max_time)
-  end
-
-  defp event_position_style_with_overlap(event, date, layout_map, min_time, max_time, min_height) do
-    {start_time, end_time} = day_window(event, date, min_time, max_time)
-
+  defp event_position_style_with_overlap(
+         event,
+         {start_time, end_time},
+         layout_map,
+         min_time,
+         max_time,
+         min_height
+       ) do
     top = TimeSlots.time_to_percentage(start_time, min_time: min_time, max_time: max_time)
     bottom = TimeSlots.time_to_percentage(end_time, min_time: min_time, max_time: max_time)
     height = bottom - top
@@ -447,13 +458,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
   # Content tier from the block's estimated height (whole text lines or
   # nothing — never a mid-glyph clip). Thresholds live in EventItem.
-  defp event_tier(event, date, :auto, min_time, max_time, rem_per_minute) do
-    {seg_start, seg_end} = day_window(event, date, min_time, max_time)
-    h_rem = Time.diff(seg_end, seg_start) / 60 * rem_per_minute
-    EventItem.tier_for_height(h_rem)
+  defp event_tier({seg_start, seg_end}, :auto, rem_per_minute) do
+    EventItem.tier_for_height(Time.diff(seg_end, seg_start) / 60 * rem_per_minute)
   end
 
-  defp event_tier(_event, _date, forced, _min_time, _max_time, _rpm), do: forced
+  defp event_tier(_window, forced, _rpm), do: forced
 
   defp slot_business_class(_date, _slot_time, []), do: nil
 
@@ -469,8 +478,8 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   end
 
   defp allday_bar_style(event, week_start, week_end, col_count, lane) do
-    event_start = to_date(event.start)
-    event_end = to_date(Event.effective_end(event))
+    event_start = DateHelpers.to_date(event.start)
+    event_end = DateHelpers.to_date(Event.effective_end(event))
 
     vis_start = if Date.compare(event_start, week_start) == :lt, do: week_start, else: event_start
     vis_end = if Date.compare(event_end, week_end) == :gt, do: week_end, else: event_end
@@ -481,8 +490,4 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
     "grid-column: #{col_start} / span #{col_span}; grid-row: #{lane + 1}"
   end
-
-  defp to_date(%Date{} = d), do: d
-  defp to_date(%DateTime{} = dt), do: DateTime.to_date(dt)
-  defp to_date(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_date(ndt)
 end

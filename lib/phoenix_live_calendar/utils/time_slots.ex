@@ -132,10 +132,11 @@ defmodule PhoenixLiveCalendar.Utils.TimeSlots do
   Extracts the time component from a DateTime or NaiveDateTime.
   Returns the value unchanged if already a Time.
   """
-  @spec to_time(DateTime.t() | NaiveDateTime.t() | Time.t()) :: Time.t()
+  @spec to_time(Date.t() | DateTime.t() | NaiveDateTime.t() | Time.t()) :: Time.t()
   def to_time(%Time{} = t), do: t
   def to_time(%DateTime{} = dt), do: DateTime.to_time(dt)
   def to_time(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_time(ndt)
+  def to_time(%Date{}), do: ~T[00:00:00]
 
   # -- Private --
 

@@ -376,6 +376,17 @@ defmodule PhoenixLiveCalendar.Event do
   defp time_part(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_time(ndt)
 
   @doc """
+  Whether two events occupy any calendar date in common (INCLUSIVE
+  first/last dates — the occupancy rule `on_date?/2` uses, so a
+  midnight-crossing event counts on its spill-over day).
+  """
+  @spec dates_overlap?(t(), t()) :: boolean()
+  def dates_overlap?(%__MODULE__{} = a, %__MODULE__{} = b) do
+    Date.compare(first_date(a), last_date(b)) != :gt and
+      Date.compare(last_date(a), first_date(b)) != :lt
+  end
+
+  @doc """
   Whether the event belongs on a resource's row/column — matches the
   singular `resource_id` OR membership in the plural `resource_ids`.
   """
