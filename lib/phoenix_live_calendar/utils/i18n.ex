@@ -116,6 +116,7 @@ defmodule PhoenixLiveCalendar.Utils.I18n do
     next_year: "Next year",
     go_to_today: "Go to today",
     layers: "Calendars",
+    ongoing: "Ongoing",
     earlier: "earlier",
     later: "later",
     earlier_tasks: "%{count} earlier",

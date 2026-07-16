@@ -262,4 +262,49 @@ defmodule PhoenixLiveCalendar.EventTest do
       refute Event.in_range?(event, ~D[2026-04-01], ~D[2026-05-01])
     end
   end
+
+  describe "all_day with a DateTime start" do
+    test "effective_end defaults to the next day, not +30 minutes" do
+      event = %Event{id: 1, start: ~U[2026-04-01 09:00:00Z], all_day: true}
+
+      # +30min put last_date on the PREVIOUS day and every occupancy
+      # consumer dropped the event
+      assert Event.effective_end(event) == ~D[2026-04-02]
+      assert Event.last_date(event) == ~D[2026-04-01]
+      assert Event.on_date?(event, ~D[2026-04-01])
+    end
+  end
+
+  describe "on_resource?/2" do
+    test "matches the singular id and plural membership" do
+      event = %Event{id: 1, start: ~D[2026-04-01], resource_id: "a", resource_ids: ["b", "c"]}
+
+      assert Event.on_resource?(event, "a")
+      assert Event.on_resource?(event, "b")
+      refute Event.on_resource?(event, "x")
+    end
+  end
+
+  describe "day_window/4" do
+    test "clips to the date and window; exact-midnight ends stay on their day" do
+      event = %Event{id: 1, start: ~U[2026-04-01 22:00:00Z], end: ~U[2026-04-02 00:00:00Z]}
+
+      assert Event.day_window(event, ~D[2026-04-01]) == {~T[22:00:00], ~T[23:59:59]}
+      assert Event.day_window(event, ~D[2026-04-01], ~T[06:00:00], ~T[22:00:00]) == nil
+    end
+
+    test "midnight-crossers split across both days" do
+      event = %Event{id: 1, start: ~U[2026-04-01 21:30:00Z], end: ~U[2026-04-02 01:00:00Z]}
+
+      assert Event.day_window(event, ~D[2026-04-01]) == {~T[21:30:00], ~T[23:59:59]}
+      assert Event.day_window(event, ~D[2026-04-02]) == {~T[00:00:00], ~T[01:00:00]}
+    end
+
+    test "all-day events span the visible window" do
+      event = %Event{id: 1, start: ~D[2026-04-01], all_day: true}
+
+      assert Event.day_window(event, ~D[2026-04-01], ~T[08:00:00], ~T[18:00:00]) ==
+               {~T[08:00:00], ~T[18:00:00]}
+    end
+  end
 end

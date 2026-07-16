@@ -127,10 +127,15 @@ defmodule PhoenixLiveCalendar.Heatmap do
     end
 
     pairs =
-      Enum.filter(data, fn
+      data
+      |> Enum.filter(fn
         {%Date{}, value} -> is_number(value) and value > 0
         _other -> false
       end)
+      # duplicate dates in list input collapse last-wins BEFORE bucketing,
+      # so the quantile ranks are computed over the surviving values only
+      |> Map.new()
+      |> Enum.to_list()
 
     bucket = bucket_fn(pairs, length(palette), Keyword.get(opts, :scale, :linear), opts)
 
@@ -164,9 +169,15 @@ defmodule PhoenixLiveCalendar.Heatmap do
     sorted = pairs |> Enum.map(&elem(&1, 1)) |> Enum.sort()
     count = length(sorted)
 
+    # Min-rank (values strictly below): with <= ties took their MAX rank,
+    # so four 1s + one 1000 pushed every 1 into an upper bucket.
     fn value ->
-      rank = Enum.count(sorted, &(&1 <= value))
-      min(div((rank - 1) * n, count), n - 1)
+      rank = Enum.count(sorted, &(&1 < value))
+      min(div(rank * n, count), n - 1)
     end
+  end
+
+  defp bucket_fn(_pairs, _n, scale, _opts) do
+    raise ArgumentError, ":scale must be :linear or :quantile, got: #{inspect(scale)}"
   end
 end

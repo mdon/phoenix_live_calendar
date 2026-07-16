@@ -139,7 +139,7 @@ defmodule PhoenixLiveCalendar.Event do
           end: Date.t() | DateTime.t() | NaiveDateTime.t() | nil,
           visibility: pos_integer(),
           all_day: boolean(),
-          color: String.t() | nil,
+          color: String.t() | atom() | nil,
           text_color: String.t() | nil,
           class: String.t() | nil,
           display: display(),
@@ -211,6 +211,13 @@ defmodule PhoenixLiveCalendar.Event do
 
   def effective_end(%__MODULE__{start: %Date{} = start}),
     do: Date.add(start, 1)
+
+  # An all-day event whose start is a DATETIME (all_day: true set explicitly)
+  # defaults to the NEXT DAY, not +30 minutes — the old default made
+  # last_date land on the PREVIOUS day and every occupancy consumer dropped
+  # the event.
+  def effective_end(%__MODULE__{all_day: true, start: start}),
+    do: start |> to_date() |> Date.add(1)
 
   def effective_end(%__MODULE__{start: %DateTime{} = start}),
     do: DateTime.add(start, 30 * 60, :second)

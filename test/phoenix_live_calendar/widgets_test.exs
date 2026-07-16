@@ -83,6 +83,29 @@ defmodule PhoenixLiveCalendar.WidgetsTest do
     end
   end
 
+  describe "next_events ongoing labeling" do
+    test "an ongoing multi-day event says Ongoing instead of its past weekday" do
+      now = ~U[2026-04-08 12:00:00Z]
+
+      events = [
+        %Event{
+          id: "trip",
+          start: ~D[2026-04-06],
+          end: ~D[2026-04-11],
+          title: "Conference trip",
+          all_day: true
+        }
+      ]
+
+      assigns = %{events: events, now: now}
+      html = render(~H"<.next_events events={@events} now={@now} />")
+
+      assert html =~ "Conference trip"
+      assert html =~ "Ongoing"
+      refute html =~ ">Mon<"
+    end
+  end
+
   describe "week_strip/1" do
     test "renders seven day cells with dots and a today pill" do
       today = ~D[2026-04-01]
@@ -146,6 +169,34 @@ defmodule PhoenixLiveCalendar.WidgetsTest do
       html = render(~H"<.activity_grid data={@data} to={@to} weeks={2} palette={:heat} />")
 
       assert html =~ "bg-error"
+    end
+  end
+
+  describe "activity_grid boundary" do
+    test "days after `to` stay blank even when the week runs past it" do
+      # `to` mid-week: the strip aligns to the week end but future days
+      # must not render as (empty) activity cells.
+      to = ~D[2026-04-01]
+      assigns = %{data: %{~D[2026-04-01] => 5}, to: to}
+
+      html = render(~H"<.activity_grid data={@data} to={@to} weeks={2} />")
+
+      doc = Floki.parse_document!(html)
+
+      future =
+        doc
+        |> Floki.find(".cal-activity-cell")
+        |> Enum.filter(fn el ->
+          [title] = Floki.attribute([el], "title")
+          String.slice(title, 0, 10) > "2026-04-01"
+        end)
+
+      assert future != []
+
+      Enum.each(future, fn el ->
+        [class] = Floki.attribute([el], "class")
+        assert class =~ "invisible"
+      end)
     end
   end
 

@@ -58,6 +58,41 @@ defmodule PhoenixLiveCalendar.HeatmapTest do
     end
   end
 
+  describe "markers/2 — quantile ties and guards" do
+    test "tied low values stay in the bottom bucket (min-rank)" do
+      # <= ranking gave ties their MAX rank: four 1s + one 1000 pushed
+      # every 1 into an upper bucket.
+      data = %{
+        ~D[2026-04-01] => 1,
+        ~D[2026-04-02] => 1,
+        ~D[2026-04-03] => 1,
+        ~D[2026-04-04] => 1,
+        ~D[2026-04-05] => 1000
+      }
+
+      markers = Heatmap.markers(data, scale: :quantile)
+      by_date = Map.new(markers, fn m -> {m.start_date, m.color} end)
+
+      assert by_date[~D[2026-04-01]] == "bg-success/20"
+      assert by_date[~D[2026-04-04]] == "bg-success/20"
+      assert by_date[~D[2026-04-05]] == "bg-success"
+    end
+
+    test "duplicate dates in list input collapse last-wins before bucketing" do
+      data = [{~D[2026-04-01], 5}, {~D[2026-04-01], 100}]
+
+      [marker] = Heatmap.markers(data, max: 100)
+      assert marker.extra.value == 100
+      assert marker.color == "bg-success"
+    end
+
+    test "an unknown scale raises ArgumentError, matching the other option guards" do
+      assert_raise ArgumentError, ~r/:scale/, fn ->
+        Heatmap.markers(%{~D[2026-04-01] => 1}, scale: :bogus)
+      end
+    end
+  end
+
   describe "markers/2 — shaping" do
     test "skips zero, negative, and non-numeric values" do
       data = %{

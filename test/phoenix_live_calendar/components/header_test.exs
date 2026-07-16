@@ -125,4 +125,73 @@ defmodule PhoenixLiveCalendar.Components.HeaderTest do
       assert html =~ ~s(role="toolbar")
     end
   end
+
+  describe "layout" do
+    defp base_assigns(views) do
+      %{
+        title: "July 2026",
+        views: views,
+        on_prev: "p",
+        on_next: "n",
+        on_today: "t",
+        on_view_change: "v"
+      }
+    end
+
+    test ":auto collapses to a start-aligned row only when both wings are empty" do
+      # single view + today visible + no slots -> empty wings -> start row
+      assigns = base_assigns([:month])
+
+      collapsed =
+        render(~H|<.header
+  title={@title}
+  views={@views}
+  today_visible={true}
+  on_prev={@on_prev}
+  on_next={@on_next}
+  on_today={@on_today}
+  on_view_change={@on_view_change}
+/>|)
+
+      assert collapsed =~ "cal-header-start"
+
+      # a visible view switcher keeps the classic centered grid
+      assigns = base_assigns([:month, :week])
+
+      centered =
+        render(~H|<.header
+  title={@title}
+  views={@views}
+  today_visible={true}
+  on_prev={@on_prev}
+  on_next={@on_next}
+  on_today={@on_today}
+  on_view_change={@on_view_change}
+/>|)
+
+      refute centered =~ "cal-header-start"
+      assert centered =~ "grid-cols-[1fr_auto_1fr]"
+    end
+
+    test "layout={:start} keeps provided wing content instead of dropping it" do
+      assigns = base_assigns([:month, :week])
+
+      html =
+        render(~H|<.header
+  title={@title}
+  layout={:start}
+  views={@views}
+  today_visible={false}
+  on_prev={@on_prev}
+  on_next={@on_next}
+  on_today={@on_today}
+  on_view_change={@on_view_change}
+/>|)
+
+      assert html =~ "cal-header-start"
+      # today button and view switcher still render, inline
+      assert html =~ "cal-nav-today"
+      assert html =~ "cal-view-btn"
+    end
+  end
 end

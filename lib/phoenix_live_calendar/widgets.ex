@@ -102,9 +102,9 @@ defmodule PhoenixLiveCalendar.Widgets do
   end
 
   @doc """
-  Seven day cells — narrow day letter, day number, up to three event dots
-  (a `+N` count beyond that). The week-at-a-glance replacement for a time
-  grid that would be illegible at widget size.
+  Seven day cells — narrow day letter, day number, up to three event dots;
+  busier days collapse to a `+N` TOTAL count. The week-at-a-glance
+  replacement for a time grid that would be illegible at widget size.
   """
   attr :date, Date, default: nil, doc: "any date inside the week (default: today)"
   attr :events, :list, default: []
@@ -205,6 +205,7 @@ defmodule PhoenixLiveCalendar.Widgets do
     assigns =
       assigns
       |> assign(:days, days)
+      |> assign(:to_date, to)
       |> assign(:classes, classes)
 
     ~H"""
@@ -215,14 +216,18 @@ defmodule PhoenixLiveCalendar.Widgets do
     >
       <span
         :for={day <- @days}
-        class={[
-          "cal-activity-cell",
-          @cell_class,
-          case Map.get(@classes, day) do
-            %{class: class} -> class
-            nil -> "bg-base-content/8"
-          end
-        ]}
+        class={
+          [
+            "cal-activity-cell",
+            @cell_class,
+            # week alignment can run past `to` — those FUTURE days stay blank
+            Date.compare(day, @to_date) == :gt && "invisible",
+            case Map.get(@classes, day) do
+              %{class: class} -> class
+              nil -> "bg-base-content/8"
+            end
+          ]
+        }
         title={activity_title(day, Map.get(@classes, day))}
       >
       </span>
@@ -366,12 +371,16 @@ defmodule PhoenixLiveCalendar.Widgets do
     Theme.bg(event.color) || "bg-primary"
   end
 
-  # Today's events show their time; this week's the weekday; further out
-  # the date.
+  # Ongoing events say so; today's events show their time; this week's the
+  # weekday; further out the date. (An ongoing multi-day event used to show
+  # its PAST start weekday, reading like a future item.)
   defp when_label(event, today, time_format, translations) do
     start_date = Event.first_date(event)
 
     cond do
+      Date.compare(start_date, today) == :lt ->
+        I18n.label(:ongoing, translations)
+
       Event.all_day?(event) and start_date == today ->
         I18n.label(:all_day, translations)
 

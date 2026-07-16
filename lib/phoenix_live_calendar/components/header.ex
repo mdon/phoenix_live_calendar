@@ -85,8 +85,13 @@ defmodule PhoenixLiveCalendar.Components.Header do
       role="toolbar"
       aria-label={I18n.label(:go_to_today, @translations)}
     >
-      <%!-- Left: info disclosure + today button + custom slot --%>
-      <div :if={not @start_layout?} class="flex items-center gap-2 justify-self-start">
+      <%!-- Left: info disclosure + today button + custom slot. In the
+           start layout this renders AFTER the title (order-2) so provided
+           content is never silently dropped. --%>
+      <div class={[
+        "flex items-center gap-2",
+        if(@start_layout?, do: "order-2", else: "justify-self-start")
+      ]}>
         <%!-- Info (ⓘ) disclosure: a no-JS <details> popover whose body is the
              consumer's `:help` slot (e.g. a key for the calendar's markings).
              Sits in the top-left corner. Inline SVG so the lib carries no
@@ -129,8 +134,11 @@ defmodule PhoenixLiveCalendar.Components.Header do
         </button>
       </div>
 
-      <%!-- Center: ‹ Title › (start-aligned when both wings are empty) --%>
-      <div class={["flex items-center gap-1", not @start_layout? && "justify-self-center"]}>
+      <%!-- Center: ‹ Title › (start-aligned in the start layout) --%>
+      <div class={[
+        "flex items-center gap-1",
+        if(@start_layout?, do: "order-1", else: "justify-self-center")
+      ]}>
         <button
           type="button"
           class="cal-nav-prev btn btn-sm btn-ghost btn-circle"
@@ -165,7 +173,10 @@ defmodule PhoenixLiveCalendar.Components.Header do
       </div>
 
       <%!-- Right: view switcher + custom slot --%>
-      <div :if={not @start_layout?} class="flex items-center gap-1 justify-self-end">
+      <div class={[
+        "flex items-center gap-1",
+        if(@start_layout?, do: "order-3 ms-auto", else: "justify-self-end")
+      ]}>
         <div
           :if={@on_view_change && length(@views) > 1}
           class="btn-group flex items-center gap-0.5"
