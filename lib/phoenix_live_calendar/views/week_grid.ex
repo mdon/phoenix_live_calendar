@@ -62,7 +62,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
   attr :events, :list, default: []
   attr :selected_date, Date, default: nil
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :min_time, Time, default: ~T[00:00:00]
   attr :max_time, Time, default: ~T[23:59:59]
   attr :slot_duration, :integer, default: 30
@@ -95,7 +95,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   slot :time_label
 
   def week_grid(assigns) do
-    today = assigns.today || Date.utc_today()
+    today = DateHelpers.resolve_today(assigns.today)
 
     slots =
       TimeSlots.time_grid_slots(
@@ -352,7 +352,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   # -- Private helpers --
 
   attr :date, Date, required: true
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :translations, :map, default: %{}
 
   # Narrow single-letter day names on phones, short names from `sm` up,

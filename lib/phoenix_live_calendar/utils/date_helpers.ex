@@ -133,6 +133,18 @@ defmodule PhoenixLiveCalendar.Utils.DateHelpers do
   end
 
   @doc """
+  Resolves a `today` attribute: a `Date` stays, `nil` (unset) falls back to
+  the server's `Date.utc_today()`, and `:none` resolves to `nil` — NO today
+  highlighting at all (archive/history views). Every date comparison against
+  a nil today is simply false, so rings, pills, tints and now-indicators all
+  switch off together.
+  """
+  @spec resolve_today(Date.t() | nil | :none) :: Date.t() | nil
+  def resolve_today(%Date{} = today), do: today
+  def resolve_today(:none), do: nil
+  def resolve_today(nil), do: Date.utc_today()
+
+  @doc """
   Coerces a Date/DateTime/NaiveDateTime to its calendar date.
   """
   @spec to_date(Date.t() | DateTime.t() | NaiveDateTime.t()) :: Date.t()

@@ -25,7 +25,7 @@ defmodule PhoenixLiveCalendar.Views.NDayView do
   attr :days, :integer, required: true
   attr :events, :list, default: []
   attr :selected_date, Date, default: nil
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :min_time, Time, default: ~T[00:00:00]
   attr :max_time, Time, default: ~T[23:59:59]
   attr :slot_duration, :integer, default: 30

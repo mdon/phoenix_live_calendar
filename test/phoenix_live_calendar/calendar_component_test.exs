@@ -35,6 +35,22 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert socket.assigns.internal_date == ~D[2026-06-01]
     end
 
+    test "today: :none disables highlighting but not navigation" do
+      today = Date.utc_today()
+
+      html = render_html(:month, %{date: today, today: :none})
+      refute html =~ ~s(aria-current="date")
+
+      # seeding falls back to the real today instead of choking on :none
+      socket = mounted() |> update(%{today: :none})
+      assert socket.assigns.internal_date == Date.utc_today()
+
+      # the Today button still navigates to the real today
+      socket = mounted() |> update(%{view: :month, date: ~D[2026-01-01], today: :none})
+      {:noreply, s} = CalendarComponent.handle_event("lc_today", %{}, socket)
+      assert s.assigns.internal_date == Date.utc_today()
+    end
+
     test "a :today prop (without :date) seeds internal_date" do
       # A timezone-correct today must win over the server's UTC today, or a
       # viewer east of UTC opens the calendar on the wrong month late evening.

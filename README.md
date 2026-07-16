@@ -161,7 +161,7 @@ end
 | `dir` | atom | `:ltr` | Text direction (`:ltr` or `:rtl`) |
 | `translations` | map | `%{}` | Label overrides |
 | `business_hours` | list | `[]` | Availability windows to highlight |
-| `today` | Date | UTC today | Timezone-correct today; also seeds the starting month when `date` is unset |
+| `today` | Date/`:none` | UTC today | Timezone-correct today (seeds the starting month when `date` is unset); `:none` disables ALL today highlighting — archive views |
 | `now` | Time | UTC now | Wall-clock time for the now indicator; pass the viewer's local time with a timezone-correct `today` |
 | `events_mode` | atom | `:full` | `:window` trims `events` to those occupying the visible range — pair with `on_date_range_change` for range-driven fetching |
 | `layers` | list | `[]` | `Layer` structs — legend toggle chips; hidden layers' events are filtered server-side; events inherit their layer's color |

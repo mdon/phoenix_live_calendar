@@ -33,7 +33,7 @@ defmodule PhoenixLiveCalendar.Views.Agenda do
   attr :date, Date, required: true
   attr :events, :list, default: []
   attr :days, :integer, default: 30
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :on_event_click, :any, default: nil
   attr :on_date_click, :any, default: nil
   attr :translations, :map, default: %{}
@@ -47,7 +47,7 @@ defmodule PhoenixLiveCalendar.Views.Agenda do
   slot :no_events
 
   def agenda(assigns) do
-    today = assigns.today || Date.utc_today()
+    today = DateHelpers.resolve_today(assigns.today)
     dates = DateHelpers.n_day_dates(assigns.date, assigns.days)
 
     events_by_date = DateHelpers.group_events_by_date(assigns.events, dates)
@@ -126,7 +126,7 @@ defmodule PhoenixLiveCalendar.Views.Agenda do
   # -- Default sub-components --
 
   attr :date, Date, required: true
-  attr :today, Date, required: true
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :event_count, :integer, required: true
   attr :on_date_click, :any, required: true
   attr :translations, :map, required: true

@@ -254,6 +254,19 @@ defmodule PhoenixLiveCalendar.WidgetsTest do
     end
   end
 
+  describe "today: :none" do
+    test "week_strip and activity_month render without today decorations" do
+      today = Date.utc_today()
+      assigns = %{data: %{today => 5}, today: today}
+
+      strip = render(~H"<.week_strip date={@today} today={:none} />")
+      refute strip =~ "bg-primary text-primary-content"
+
+      month = render(~H"<.activity_month data={@data} date={@today} today={:none} />")
+      refute month =~ "ring-primary"
+    end
+  end
+
   describe "week_start variants" do
     test "activity_month orders day initials from the configured week start" do
       assigns = %{data: %{~D[2026-04-10] => 5}, date: ~D[2026-04-15]}

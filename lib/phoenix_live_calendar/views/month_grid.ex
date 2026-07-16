@@ -56,7 +56,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   attr :events, :list, default: []
   attr :day_markers, :list, default: []
   attr :selected_date, Date, default: nil
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :week_start, :integer, default: 1
   attr :max_events, :integer, default: 3
 
@@ -92,7 +92,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   slot :event
 
   def month_grid(assigns) do
-    today = assigns.today || Date.utc_today()
+    today = DateHelpers.resolve_today(assigns.today)
 
     dates =
       DateHelpers.month_grid(assigns.date,

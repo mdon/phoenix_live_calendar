@@ -109,15 +109,15 @@ defmodule PhoenixLiveCalendar.Widgets do
   """
   attr :date, Date, default: nil, doc: "any date inside the week (default: today)"
   attr :events, :list, default: []
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :week_start, :integer, default: 1
   attr :on_date_click, :any, default: nil
   attr :translations, :map, default: %{}
   attr :class, :string, default: ""
 
   def week_strip(assigns) do
-    today = assigns.today || Date.utc_today()
-    anchor = assigns.date || today
+    today = DateHelpers.resolve_today(assigns.today)
+    anchor = assigns.date || today || Date.utc_today()
     monday = DateHelpers.week_start_date(anchor, assigns.week_start)
     dates = Enum.map(0..6, &Date.add(monday, &1))
     events_by_date = DateHelpers.group_events_by_date(assigns.events, dates)
@@ -250,7 +250,7 @@ defmodule PhoenixLiveCalendar.Widgets do
   """
   attr :data, :any, required: true
   attr :date, Date, default: nil
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :week_start, :integer, default: 1
   attr :palette, :any, default: :success
   attr :scale, :atom, default: :linear
@@ -261,8 +261,8 @@ defmodule PhoenixLiveCalendar.Widgets do
   attr :class, :string, default: ""
 
   def activity_month(assigns) do
-    today = assigns.today || Date.utc_today()
-    anchor = assigns.date || today
+    today = DateHelpers.resolve_today(assigns.today)
+    anchor = assigns.date || today || Date.utc_today()
     dates = DateHelpers.month_grid(anchor, week_start: assigns.week_start, fixed_weeks: false)
 
     classes =
@@ -324,7 +324,7 @@ defmodule PhoenixLiveCalendar.Widgets do
   attr :events, :list, default: []
   attr :max_rows, :integer, default: 3
   attr :resource_width, :string, default: "6rem"
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :now, Time, default: nil
   attr :on_event_click, :any, default: nil
   attr :class, :string, default: ""

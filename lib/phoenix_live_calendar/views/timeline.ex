@@ -15,7 +15,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   alias PhoenixLiveCalendar.Components.EventItem
   alias PhoenixLiveCalendar.Event
   alias PhoenixLiveCalendar.Utils
-  alias PhoenixLiveCalendar.Utils.{I18n, TimeSlots}
+  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, TimeSlots}
 
   @day_start ~T[00:00:00]
   @day_end ~T[23:59:59]
@@ -116,7 +116,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   attr :sticky_resource_column, :boolean, default: true
   attr :show_time_axis, :boolean, default: true
   attr :show_now_indicator, :boolean, default: true
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :now, Time, default: nil
   attr :fit_to_events, :boolean, default: false
   attr :label_position, :atom, default: :fit, values: [:none, :inside, :outside, :fit]
@@ -161,7 +161,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
         {resource.id, row_bars(row_events, assigns, min_time, max_time, track_rem)}
       end)
 
-    today = assigns.today || Date.utc_today()
+    today = DateHelpers.resolve_today(assigns.today)
     now = assigns.now || Time.utc_now()
 
     # Hidden when the current time falls outside the visible window —

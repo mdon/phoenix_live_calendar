@@ -474,6 +474,16 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       refute hidden =~ "cal-now-indicator"
     end
 
+    test "today={:none} disables the today tint and the now line" do
+      today = Date.utc_today()
+      assigns = %{dates: [today]}
+
+      html = render(~H"<.week_grid dates={@dates} today={:none} now={~T[12:00:00]} />")
+
+      refute html =~ "bg-primary/5"
+      refute html =~ "cal-now-indicator"
+    end
+
     test "an empty dates list renders without crashing" do
       assigns = %{dates: []}
       html = render(~H"<.week_grid dates={@dates} />")

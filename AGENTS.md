@@ -493,7 +493,7 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 | Attr | Default | Description |
 |------|---------|-------------|
 | `date` | nil | Anchor date. Initial value **and** controlled override: seeds the view on mount and re-syncs only when the parent actually changes it — a re-render passing the same value preserves the user's own month navigation (see "View/date sync" below). |
-| `today` | `Date.utc_today()` | Today's date for highlighting. Pass `nil` to disable. |
+| `today` | `Date.utc_today()` | Today's date for highlighting. `:none` disables all today decorations (archive views); `nil` = server today. |
 | `view` | `:month` | Initial view mode. Same initial-plus-controlled semantics as `date`. |
 | `views` | `[:month, :week, :day]` | Available view modes in switcher |
 | `show_header` | `true` | Show/hide the header toolbar |

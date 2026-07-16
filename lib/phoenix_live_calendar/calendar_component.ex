@@ -129,7 +129,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       socket
       |> assign(assigns)
       |> assign_new(:internal_date, fn ->
-        assigns[:date] || assigns[:today] || Date.utc_today()
+        assigns[:date] || anchor_today(assigns[:today])
       end)
       |> maybe_seed_hidden_layers(assigns)
       |> maybe_sync_date(assigns)
@@ -141,6 +141,12 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   # Initial layer visibility comes from Layer.visible on the first NON-EMPTY
   # layers list (not the first update — layers often arrive async, after the
   # component's first render); from then on the component owns the toggles.
+  # The date the "Today" button and initial anchor use: a provided Date, or
+  # the server's today — a :none sentinel disables HIGHLIGHTING, not
+  # navigation.
+  defp anchor_today(%Date{} = today), do: today
+  defp anchor_today(_), do: Date.utc_today()
+
   defp maybe_seed_hidden_layers(socket, %{layers: [_ | _] = layers}) do
     if socket.assigns[:hidden_layers_seeded?] do
       socket
@@ -286,7 +292,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           events={assigns[:events] || []}
           resources={assigns[:resources] || []}
           selected_date={assigns[:selected_date]}
-          today={if Map.has_key?(assigns, :today), do: assigns.today, else: Date.utc_today()}
+          today={assigns[:today]}
           week_start={assigns[:week_start] || 1}
           min_time={assigns[:min_time] || ~T[00:00:00]}
           max_time={assigns[:max_time] || ~T[23:59:59]}
@@ -357,7 +363,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :events, :list, required: true
   attr :resources, :list, required: true
   attr :selected_date, :any, required: true
-  attr :today, Date, required: true
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :week_start, :integer, required: true
   attr :min_time, Time, required: true
   attr :max_time, Time, required: true
@@ -673,7 +679,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   end
 
   def handle_event("lc_today", _params, socket) do
-    today = socket.assigns[:today] || Date.utc_today()
+    today = anchor_today(socket.assigns[:today])
 
     socket =
       socket
@@ -1078,7 +1084,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   end
 
   defp today_visible?(assigns) do
-    today = if Map.has_key?(assigns, :today), do: assigns.today, else: Date.utc_today()
+    today = DateHelpers.resolve_today(assigns[:today])
 
     if today do
       view = assigns.internal_view

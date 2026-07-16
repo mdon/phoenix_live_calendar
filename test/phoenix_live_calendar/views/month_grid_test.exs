@@ -89,6 +89,16 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       assert html =~ ~s(data-date="2026-04-30")
     end
 
+    test "today={:none} renders an archive month with no today decorations" do
+      today = Date.utc_today()
+      assigns = %{date: today}
+
+      html = render(~H"<.month_grid date={@date} today={:none} />")
+
+      refute html =~ ~s(aria-current="date")
+      refute html =~ "bg-primary/10"
+    end
+
     test "marks today with aria-current" do
       today = Date.utc_today()
       assigns = %{date: today, today: today}

@@ -10,7 +10,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
 
   alias PhoenixLiveCalendar.Components.{EventItem, TimeGutter}
   alias PhoenixLiveCalendar.Event
-  alias PhoenixLiveCalendar.Utils.{Safe, Sizing, TimeSlots}
+  alias PhoenixLiveCalendar.Utils.{DateHelpers, Safe, Sizing, TimeSlots}
 
   @doc """
   Renders a resource-column time grid.
@@ -63,7 +63,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
   attr :slot_duration, :integer, default: 30
   attr :slot_height, :string, default: "3rem"
   attr :show_now_indicator, :boolean, default: true
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :now, Time, default: nil
 
   attr :event_content, :atom,
@@ -100,7 +100,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
       end)
 
     now = assigns.now || Time.utc_now()
-    today = assigns.today || Date.utc_today()
+    today = DateHelpers.resolve_today(assigns.today)
     col_count = length(assigns.resources)
 
     rem_per_minute =

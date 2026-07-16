@@ -26,7 +26,7 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
   """
   attr :date, Date, required: true
   attr :selected_date, Date, default: nil
-  attr :today, Date, default: nil
+  attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"
   attr :events_by_date, :map, default: %{}
   attr :markers_by_date, :map, default: %{}
   attr :on_date_click, :any, default: nil
@@ -36,7 +36,7 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
   attr :show_header, :boolean, default: true
 
   def mini_calendar(assigns) do
-    today = assigns.today || Date.utc_today()
+    today = DateHelpers.resolve_today(assigns.today)
     dates = DateHelpers.month_grid(assigns.date, week_start: assigns.week_start)
     weeks = DateHelpers.group_by_weeks(dates)
     day_names = I18n.ordered_day_names_narrow(assigns.week_start, assigns.translations)
