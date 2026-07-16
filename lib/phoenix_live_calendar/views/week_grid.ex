@@ -139,6 +139,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       |> assign(:col_count, col_count)
       |> assign(:markers_by_date, markers_by_date)
       |> assign(:rem_per_minute, rem_per_minute)
+      |> assign(
+        :now_in_window?,
+        Time.compare(now, assigns.min_time) != :lt and
+          Time.compare(now, assigns.max_time) != :gt
+      )
 
     ~H"""
     <div class={["cal-week-grid flex flex-col", @class]} dir={to_string(@dir)}>
@@ -189,7 +194,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       </div>
 
       <%!-- All-day row with spanning bars --%>
-      <div :if={@show_all_day_row} class="cal-all-day-row border-b border-base-200">
+      <div :if={@show_all_day_row and @dates != []} class="cal-all-day-row border-b border-base-200">
         <div class="flex">
           <div class="w-12 sm:w-16 flex-shrink-0 text-xs text-base-content/50 text-center py-1">
             {I18n.label(:all_day, @translations)}
@@ -318,7 +323,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
             <%!-- Now indicator --%>
             <TimeGutter.now_indicator
-              :if={@show_now_indicator && date == @today}
+              :if={@show_now_indicator && date == @today && @now_in_window?}
               current_time={@now}
               min_time={@min_time}
               max_time={@max_time}
@@ -424,8 +429,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
     event_end = Event.effective_end(event)
 
+    # Compare the raw (exclusive) end DATE, not last_date: a timed event
+    # ending exactly at midnight has last_date == its start date, which
+    # inverted the segment (22:00 > 00:00) and silently dropped the event.
     seg_end =
-      if Date.compare(Event.last_date(event), date) == :gt,
+      if Date.compare(to_date(event_end), date) == :gt,
         do: ~T[23:59:59],
         else: TimeSlots.to_time(event_end)
 
@@ -449,14 +457,20 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     # A rem floor (one text line by default) instead of the old 1.5% floor,
     # whose real size depended on the window; the top clamp keeps a floored
     # bottom-edge block inside the track.
-    case Safe.sanitize_css_dimension(min_height) do
-      floor when floor in [nil, "0", "0px", "0rem"] ->
+    case height_floor(min_height) do
+      nil ->
         "top: #{top}%; height: #{height}%; #{h_style}"
 
       floor ->
         "top: min(#{top}%, calc(100% - #{floor})); height: max(#{height}%, #{floor}); #{h_style}"
     end
   end
+
+  # "0" (and nil/"") disable the floor OUTSIDE the CSS sanitizer — the
+  # sanitizer requires a unit, so a bare "0" used to fail its regex and come
+  # back as the fallback, installing a floor the caller asked to remove.
+  defp height_floor(min_height) when min_height in [nil, "", "0"], do: nil
+  defp height_floor(min_height), do: Safe.sanitize_css_dimension(min_height, "1.25rem")
 
   # Content tier from the block's estimated height (whole text lines or
   # nothing — never a mid-glyph clip).

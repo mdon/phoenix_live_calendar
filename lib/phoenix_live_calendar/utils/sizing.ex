@@ -18,7 +18,7 @@ defmodule PhoenixLiveCalendar.Utils.Sizing do
   @spec parse_rem(String.t() | nil, number()) :: float()
   def parse_rem(value, default \\ 3.0)
 
-  def parse_rem(value, default) when is_binary(value) do
+  def parse_rem(value, default) when is_binary(value) and is_number(default) do
     case Float.parse(String.trim(value)) do
       {n, "rem"} -> n
       {n, "px"} -> n / @px_per_rem
@@ -26,7 +26,7 @@ defmodule PhoenixLiveCalendar.Utils.Sizing do
     end
   end
 
-  def parse_rem(_value, default), do: default * 1.0
+  def parse_rem(_value, default) when is_number(default), do: default * 1.0
 
   @doc """
   Estimated rendered width of a text label in rem at `text-xs`

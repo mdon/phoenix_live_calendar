@@ -168,4 +168,15 @@ defmodule PhoenixLiveCalendar.Utils.SafeTest do
       end)
     end
   end
+
+  describe "sanitize_css_dimension/2 fallback parameter" do
+    import ExUnit.CaptureLog
+
+    test "an invalid dimension returns the SUPPLIED fallback, not a hardcoded 3rem" do
+      capture_log(fn ->
+        assert Safe.sanitize_css_dimension("javascript:alert(1)", "1.25rem") == "1.25rem"
+        assert Safe.sanitize_css_dimension("bogus") == "3rem"
+      end)
+    end
+  end
 end

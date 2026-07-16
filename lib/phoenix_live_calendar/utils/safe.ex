@@ -85,7 +85,7 @@ defmodule PhoenixLiveCalendar.Utils.Safe do
   """
   def sanitize_css_dimension(value, fallback \\ "3rem")
 
-  def sanitize_css_dimension(value, _fallback) when is_binary(value) do
+  def sanitize_css_dimension(value, fallback) when is_binary(value) do
     if Regex.match?(~r/^\d+(\.\d+)?\s*(px|rem|em|vh|vw|%|ch|ex|vmin|vmax)$/, value) do
       value
     else
@@ -93,7 +93,7 @@ defmodule PhoenixLiveCalendar.Utils.Safe do
         "[PhoenixLiveCalendar] Invalid CSS dimension: #{inspect(value)}, using fallback"
       )
 
-      "3rem"
+      fallback
     end
   end
 

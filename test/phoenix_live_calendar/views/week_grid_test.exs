@@ -431,4 +431,74 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       refute html =~ "Early jog"
     end
   end
+
+  describe "sweep regressions" do
+    test "a timed event ending exactly at midnight renders on its day" do
+      # last_date treats a 00:00:00 end as not occupying that day, which
+      # used to invert the day segment and silently drop the whole block.
+      events = [
+        %Event{
+          id: "mid",
+          start: ~U[2026-04-01 22:00:00Z],
+          end: ~U[2026-04-02 00:00:00Z],
+          title: "Til midnight"
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-01], ~D[2026-04-02]], events: events}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+
+      doc = Floki.parse_document!(html)
+      assert length(Floki.find(doc, "[data-date='2026-04-01'] .cal-event")) == 1
+      # exclusive end: nothing on the 2nd
+      assert Floki.find(doc, "[data-date='2026-04-02'] .cal-event") == []
+    end
+
+    test "the now line hides when now is outside the visible window" do
+      today = ~D[2026-04-08]
+      assigns = %{dates: [today], today: today}
+
+      shown =
+        render(~H"<.week_grid dates={@dates} today={@today} now={~T[12:00:00]} />")
+
+      hidden =
+        render(~H"<.week_grid
+  dates={@dates}
+  today={@today}
+  now={~T[05:00:00]}
+  min_time={~T[06:00:00]}
+  max_time={~T[22:00:00]}
+/>")
+
+      assert shown =~ "cal-now-indicator"
+      refute hidden =~ "cal-now-indicator"
+    end
+
+    test "an empty dates list renders without crashing" do
+      assigns = %{dates: []}
+      html = render(~H"<.week_grid dates={@dates} />")
+
+      assert html =~ "cal-week-grid"
+      refute html =~ "cal-all-day-row"
+    end
+
+    test ~s(min_event_height="0" really disables the floor) do
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-08 10:00:00Z],
+          end: ~U[2026-04-08 10:05:00Z],
+          title: "Tiny"
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-08]], events: events}
+
+      html =
+        render(~H|<.week_grid dates={@dates} events={@events} min_event_height="0" />|)
+
+      refute html =~ "height: max("
+      assert html =~ ~r/height: 0\.3\d+%/
+    end
+  end
 end

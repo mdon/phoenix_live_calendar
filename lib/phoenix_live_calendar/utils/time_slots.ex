@@ -152,6 +152,10 @@ defmodule PhoenixLiveCalendar.Utils.TimeSlots do
   end
 
   defp generate_time_slots(min_time, max_time, slot_duration_minutes) do
+    # A zero/negative duration would make the Stream below never terminate
+    # (constant or decreasing values are always < max) — a render HANG, and
+    # reachable: `0 || 30 == 0` in Elixir, so a caller's 0 flows through.
+    slot_duration_minutes = if slot_duration_minutes > 0, do: slot_duration_minutes, else: 30
     slot_seconds = slot_duration_minutes * 60
     min_seconds = time_to_seconds(min_time)
     max_seconds = time_to_seconds(max_time)

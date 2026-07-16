@@ -217,4 +217,25 @@ defmodule PhoenixLiveCalendar.Utils.TimeSlotsTest do
   end
 
   defp slot_dt(date, time), do: DateTime.from_naive!(NaiveDateTime.new!(date, time), "Etc/UTC")
+
+  describe "non-positive slot_duration" do
+    test "falls back to 30-minute slots instead of hanging" do
+      # 0 || 30 == 0 in Elixir, so a caller's 0 used to reach the slot
+      # generator and spin Stream.iterate forever (render hang).
+      slots =
+        TimeSlots.time_grid_slots(
+          min_time: ~T[09:00:00],
+          max_time: ~T[11:00:00],
+          slot_duration: 0
+        )
+
+      assert slots == [~T[09:00:00], ~T[09:30:00], ~T[10:00:00], ~T[10:30:00]]
+
+      assert TimeSlots.time_grid_slots(
+               min_time: ~T[09:00:00],
+               max_time: ~T[10:00:00],
+               slot_duration: -15
+             ) == [~T[09:00:00], ~T[09:30:00]]
+    end
+  end
 end
