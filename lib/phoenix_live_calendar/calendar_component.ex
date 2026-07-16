@@ -131,6 +131,13 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       |> assign_new(:internal_date, fn ->
         assigns[:date] || assigns[:today] || Date.utc_today()
       end)
+      # Initial layer visibility comes from Layer.visible on the FIRST layers
+      # list; after that the component owns the toggles.
+      |> assign_new(:hidden_layer_ids, fn ->
+        (assigns[:layers] || [])
+        |> Enum.reject(& &1.visible)
+        |> MapSet.new(&to_string(&1.id))
+      end)
       |> maybe_sync_date(assigns)
       |> maybe_sync_view(assigns)
 
@@ -179,6 +186,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       |> assign_defaults()
       |> assign_title()
       |> filter_events_by_window()
+      |> apply_layers()
       |> filter_events_by_visibility()
 
     ~H"""
@@ -219,6 +227,37 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
              the words (it knows what its events/markings mean). --%>
         <:help :if={assigns[:info] not in [nil, []]}>{render_slot(assigns[:info])}</:help>
       </Header.header>
+
+      <%!-- Layer legend: one toggle chip per layer. Hidden layers' events are
+           filtered SERVER-side; a layer the viewer may not see should simply
+           never be passed in. --%>
+      <div
+        :if={(assigns[:layers] || []) != [] and assigns[:show_legend] != false}
+        class="cal-legend flex flex-wrap items-center gap-1 px-2 py-1.5 sm:px-3 border-b border-base-200"
+        role="group"
+        aria-label={I18n.label(:layers, assigns[:translations] || %{})}
+      >
+        <button
+          :for={layer <- @layers}
+          type="button"
+          class={[
+            "cal-legend-chip btn btn-xs btn-ghost gap-1.5 font-normal",
+            layer_hidden?(assigns, layer) && "cal-legend-chip-hidden opacity-45 line-through"
+          ]}
+          phx-click="lc_layer_toggle"
+          phx-value-layer={to_string(layer.id)}
+          phx-target={@myself}
+          aria-pressed={to_string(not layer_hidden?(assigns, layer))}
+        >
+          <span
+            :if={layer.color}
+            class={["cal-legend-dot w-2.5 h-2.5 rounded-full inline-block", layer.color]}
+            aria-hidden="true"
+          >
+          </span>
+          {layer.label}
+        </button>
+      </div>
 
       <div class="cal-view-container flex-1 overflow-auto">
         <.render_view
@@ -605,6 +644,29 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     end
   end
 
+  def handle_event("lc_layer_toggle", %{"layer" => id}, socket) when is_binary(id) do
+    hidden = socket.assigns[:hidden_layer_ids] || MapSet.new()
+
+    hidden =
+      if MapSet.member?(hidden, id),
+        do: MapSet.delete(hidden, id),
+        else: MapSet.put(hidden, id)
+
+    socket = assign(socket, :hidden_layer_ids, hidden)
+
+    {visible_layers, hidden_layers} =
+      Enum.split_with(socket.assigns[:layers] || [], fn layer ->
+        not MapSet.member?(hidden, to_string(layer.id))
+      end)
+
+    notify_callback(socket, :on_layers_change, %{
+      visible: Enum.map(visible_layers, & &1.id),
+      hidden: Enum.map(hidden_layers, & &1.id)
+    })
+
+    {:noreply, socket}
+  end
+
   def handle_event("lc_date_click", %{"date" => date_str}, socket) when is_binary(date_str) do
     case Date.from_iso8601(date_str) do
       {:ok, date} ->
@@ -763,6 +825,49 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       _ ->
         assigns
     end
+  end
+
+  # Layers: drop events belonging to hidden layers, and let events without
+  # their own color inherit the layer's. Events with no layer_id (or one
+  # matching no passed layer) always render.
+  defp apply_layers(assigns) do
+    case assigns[:layers] do
+      layers when is_list(layers) and layers != [] ->
+        hidden = assigns[:hidden_layer_ids] || MapSet.new()
+        by_id = Map.new(layers, &{to_string(&1.id), &1})
+
+        events =
+          (assigns[:events] || [])
+          |> Enum.reject(fn event ->
+            event.layer_id != nil and MapSet.member?(hidden, to_string(event.layer_id))
+          end)
+          |> Enum.map(&inherit_layer_style(&1, by_id))
+
+        assign(assigns, :events, events)
+
+      _ ->
+        assigns
+    end
+  end
+
+  defp inherit_layer_style(%Event{layer_id: nil} = event, _by_id), do: event
+
+  defp inherit_layer_style(%Event{} = event, by_id) do
+    case by_id[to_string(event.layer_id)] do
+      nil ->
+        event
+
+      layer ->
+        %{
+          event
+          | color: event.color || layer.color,
+            text_color: event.text_color || layer.text_color
+        }
+    end
+  end
+
+  defp layer_hidden?(assigns, layer) do
+    MapSet.member?(assigns[:hidden_layer_ids] || MapSet.new(), to_string(layer.id))
   end
 
   defp filter_events_by_visibility(assigns) do

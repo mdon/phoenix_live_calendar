@@ -474,6 +474,114 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     end
   end
 
+  describe "layers" do
+    alias PhoenixLiveCalendar.{Event, Layer}
+
+    defp team_layers do
+      [
+        %Layer{id: "me", label: "Me", color: "bg-primary"},
+        %Layer{id: "alice", label: "Alice", color: "bg-accent"},
+        %Layer{id: "off", label: "Holidays", color: "bg-error", visible: false}
+      ]
+    end
+
+    defp team_events do
+      [
+        %Event{id: "1", start: ~D[2026-06-10], title: "Mine", all_day: true, layer_id: "me"},
+        %Event{id: "2", start: ~D[2026-06-11], title: "Hers", all_day: true, layer_id: "alice"},
+        %Event{id: "3", start: ~D[2026-06-12], title: "Xmas", all_day: true, layer_id: "off"},
+        %Event{id: "4", start: ~D[2026-06-13], title: "Loose", all_day: true}
+      ]
+    end
+
+    test "renders a legend chip per layer, dimming hidden ones" do
+      html = render_html(:month, %{layers: team_layers(), events: team_events()})
+
+      assert html =~ "cal-legend"
+      assert html =~ "Me"
+      assert html =~ "Alice"
+      assert html =~ "Holidays"
+      assert html =~ "cal-legend-chip-hidden"
+      assert html =~ ~s(aria-pressed="false")
+    end
+
+    test "show_legend: false hides the legend; no layers renders none" do
+      refute render_html(:month, %{layers: team_layers(), show_legend: false}) =~ "cal-legend"
+      refute render_html(:month) =~ "cal-legend"
+    end
+
+    test "a visible: false layer's events are filtered at render" do
+      html = render_html(:month, %{layers: team_layers(), events: team_events()})
+
+      assert html =~ "Mine"
+      assert html =~ "Hers"
+      refute html =~ "Xmas"
+      # events without a layer (or with an unknown one) always render
+      assert html =~ "Loose"
+    end
+
+    test "events without their own color inherit the layer color" do
+      html = render_html(:month, %{layers: team_layers(), events: team_events()})
+
+      assert html =~ "bg-accent"
+    end
+
+    test "an event's own color beats the layer color" do
+      events = [
+        %Event{
+          id: "1",
+          start: ~D[2026-06-10],
+          title: "Mine",
+          all_day: true,
+          layer_id: "me",
+          color: "bg-warning"
+        }
+      ]
+
+      html = render_html(:month, %{layers: team_layers(), events: events})
+
+      assert html =~ "bg-warning"
+    end
+
+    test "lc_layer_toggle hides and re-shows a layer and notifies" do
+      pid = self()
+
+      socket =
+        mounted()
+        |> update(%{
+          view: :month,
+          date: ~D[2026-06-15],
+          layers: team_layers(),
+          on_layers_change: cb(pid, :layers)
+        })
+
+      {:noreply, socket} =
+        CalendarComponent.handle_event("lc_layer_toggle", %{"layer" => "alice"}, socket)
+
+      assert MapSet.member?(socket.assigns.hidden_layer_ids, "alice")
+      assert_received {:layers, %{visible: ["me"], hidden: ["alice", "off"]}}
+
+      {:noreply, socket} =
+        CalendarComponent.handle_event("lc_layer_toggle", %{"layer" => "alice"}, socket)
+
+      refute MapSet.member?(socket.assigns.hidden_layer_ids, "alice")
+      assert_received {:layers, %{visible: ["me", "alice"], hidden: ["off"]}}
+    end
+
+    test "toggle state survives parent re-renders" do
+      socket = mounted() |> update(%{view: :month, date: ~D[2026-06-15], layers: team_layers()})
+
+      {:noreply, socket} =
+        CalendarComponent.handle_event("lc_layer_toggle", %{"layer" => "me"}, socket)
+
+      # A routine parent re-render must not reset the viewer's toggles.
+      socket = update(socket, %{layers: team_layers()})
+
+      assert MapSet.member?(socket.assigns.hidden_layer_ids, "me")
+      assert MapSet.member?(socket.assigns.hidden_layer_ids, "off")
+    end
+  end
+
   describe "slot forwarding" do
     # The views always had :event/:day_cell/... slots, but the documented
     # entrypoint declared none and never forwarded them — wrapper users

@@ -96,6 +96,7 @@ defmodule PhoenixLiveCalendar.Event do
 
     # Grouping
     :group_id,
+    :layer_id,
     :resource_id,
     :resource_ids,
     :category,
@@ -143,6 +144,7 @@ defmodule PhoenixLiveCalendar.Event do
           class: String.t() | nil,
           display: display(),
           group_id: term() | nil,
+          layer_id: term() | nil,
           resource_id: term() | nil,
           resource_ids: [term()] | nil,
           category: String.t() | atom() | nil,
