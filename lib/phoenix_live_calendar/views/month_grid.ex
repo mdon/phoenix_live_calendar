@@ -90,7 +90,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   slot :event
 
   def month_grid(assigns) do
-    today = assigns.today
+    today = assigns.today || Date.utc_today()
 
     dates =
       DateHelpers.month_grid(assigns.date,

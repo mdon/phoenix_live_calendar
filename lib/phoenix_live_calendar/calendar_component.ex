@@ -131,17 +131,31 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       |> assign_new(:internal_date, fn ->
         assigns[:date] || assigns[:today] || Date.utc_today()
       end)
-      # Initial layer visibility comes from Layer.visible on the FIRST layers
-      # list; after that the component owns the toggles.
-      |> assign_new(:hidden_layer_ids, fn ->
-        (assigns[:layers] || [])
-        |> Enum.reject(& &1.visible)
-        |> MapSet.new(&to_string(&1.id))
-      end)
+      |> maybe_seed_hidden_layers(assigns)
       |> maybe_sync_date(assigns)
       |> maybe_sync_view(assigns)
 
     {:ok, socket}
+  end
+
+  # Initial layer visibility comes from Layer.visible on the first NON-EMPTY
+  # layers list (not the first update — layers often arrive async, after the
+  # component's first render); from then on the component owns the toggles.
+  defp maybe_seed_hidden_layers(socket, %{layers: [_ | _] = layers}) do
+    if socket.assigns[:hidden_layers_seeded?] do
+      socket
+    else
+      socket
+      |> assign(:hidden_layers_seeded?, true)
+      |> assign(
+        :hidden_layer_ids,
+        layers |> Enum.reject(& &1.visible) |> MapSet.new(&to_string(&1.id))
+      )
+    end
+  end
+
+  defp maybe_seed_hidden_layers(socket, _assigns) do
+    assign_new(socket, :hidden_layer_ids, fn -> MapSet.new() end)
   end
 
   # `:date` and `:view` act as the INITIAL anchor AND a controlled override:
@@ -206,7 +220,9 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
         view={@internal_view}
         views={assigns[:views] || [:month, :week, :day]}
         today_visible={today_visible?(assigns)}
-        show_today_button={assigns[:show_today_button] || :auto}
+        show_today_button={
+          if is_nil(assigns[:show_today_button]), do: :auto, else: assigns[:show_today_button]
+        }
         on_prev={
           %Phoenix.LiveView.JS{}
           |> Phoenix.LiveView.JS.push("lc_navigate", target: @myself, value: %{direction: "prev"})
@@ -850,8 +866,16 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp apply_layers(assigns) do
     case assigns[:layers] do
       layers when is_list(layers) and layers != [] ->
-        hidden = assigns[:hidden_layer_ids] || MapSet.new()
         by_id = Map.new(layers, &{to_string(&1.id), &1})
+
+        # Intersect with the CURRENT layer ids: a stale hidden id whose layer
+        # was removed must not keep filtering events (unknown layers always
+        # render, per the Layer contract).
+        hidden =
+          MapSet.intersection(
+            assigns[:hidden_layer_ids] || MapSet.new(),
+            MapSet.new(by_id, fn {id, _} -> id end)
+          )
 
         events =
           (assigns[:events] || [])

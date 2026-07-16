@@ -434,6 +434,21 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     end
   end
 
+  describe "show_today_button" do
+    test "an explicit false actually hides the button" do
+      # false || :auto == :auto used to make false unreachable
+      html =
+        render_html(:month, %{date: ~D[2026-01-15], show_today_button: false})
+
+      refute html =~ "cal-nav-today"
+    end
+
+    test ":auto still shows it when today is out of view" do
+      html = render_html(:month, %{date: ~D[2026-01-15]})
+      assert html =~ "cal-nav-today"
+    end
+  end
+
   describe "week/day threading" do
     test "day_markers reach the week grid (chips + column tint)" do
       markers = [
@@ -609,6 +624,36 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
 
       refute MapSet.member?(socket.assigns.hidden_layer_ids, "alice")
       assert_received {:layers, %{visible: ["me", "alice"], hidden: ["off"]}}
+    end
+
+    test "layers arriving on a LATER update still seed initial visibility" do
+      # Async-loaded layers: the first update carries none; visible: false
+      # must still hide the layer when the list finally arrives.
+      socket = mounted() |> update(%{view: :month, date: ~D[2026-06-15]})
+      socket = update(socket, %{layers: team_layers()})
+
+      assert MapSet.member?(socket.assigns.hidden_layer_ids, "off")
+    end
+
+    test "a stale hidden id whose layer was removed stops filtering events" do
+      socket =
+        mounted()
+        |> update(%{id: "cal", view: :month, date: ~D[2026-06-15], layers: team_layers()})
+
+      {:noreply, socket} =
+        CalendarComponent.handle_event("lc_layer_toggle", %{"layer" => "alice"}, socket)
+
+      # Parent drops Alice's layer entirely; her events carry an unknown
+      # layer_id now and must render (the documented Layer contract).
+      remaining = Enum.reject(team_layers(), &(&1.id == "alice"))
+      socket = update(socket, %{layers: remaining, events: team_events()})
+
+      assigns =
+        socket.assigns
+        |> Map.put(:myself, %Phoenix.LiveComponent.CID{cid: 1})
+
+      html = assigns |> CalendarComponent.render() |> rendered_to_string()
+      assert html =~ "Hers"
     end
 
     test "toggle state survives parent re-renders" do

@@ -170,7 +170,10 @@ defmodule PhoenixLiveCalendar.Views.Agenda do
       aria-label={event_label(@event, @time_format)}
     >
       <div
-        class={["w-3 h-3 rounded-full flex-shrink-0", @event.color || "bg-primary"]}
+        class={[
+          "w-3 h-3 rounded-full flex-shrink-0",
+          PhoenixLiveCalendar.Theme.bg(@event.color) || "bg-primary"
+        ]}
         aria-hidden="true"
       >
       </div>

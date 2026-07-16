@@ -159,4 +159,25 @@ defmodule PhoenixLiveCalendar.Views.AgendaTest do
       assert html =~ "2:30 PM"
     end
   end
+
+  describe "theme tokens" do
+    test "a semantic token color resolves in the agenda dot" do
+      events = [
+        %PhoenixLiveCalendar.Event{
+          id: "1",
+          start: ~U[2026-04-02 10:00:00Z],
+          end: ~U[2026-04-02 11:00:00Z],
+          title: "Token event",
+          color: :accent
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], events: events}
+      html = render(~H"<.agenda date={@date} events={@events} days={7} />")
+
+      assert html =~ "bg-accent"
+      # the raw atom must never land in the class list
+      refute html =~ ~s(class="w-3 h-3 rounded-full accent)
+    end
+  end
 end

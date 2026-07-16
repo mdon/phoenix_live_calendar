@@ -177,7 +177,9 @@ defmodule PhoenixLiveCalendar.DayMarker do
   The first custom cell `color` among a day's markers, or `nil`.
   """
   @spec custom_color([t()]) :: String.t() | nil
-  def custom_color(markers), do: Enum.find_value(markers, & &1.color)
+  def custom_color(markers) do
+    Enum.find_value(markers, fn marker -> PhoenixLiveCalendar.Theme.bg(marker.color) end)
+  end
 
   @doc """
   The semantic hook class for a day's markers (`cal-day-holiday` /
