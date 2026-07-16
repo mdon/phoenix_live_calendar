@@ -314,6 +314,27 @@ defmodule PhoenixLiveCalendar.Event do
     end
   end
 
+  @doc """
+  The FIRST calendar date this event occupies (its start date).
+  """
+  @spec first_date(t()) :: Date.t()
+  def first_date(%__MODULE__{} = event), do: to_date(event.start)
+
+  @doc """
+  Whether the event occupies any date in `[range_start, range_end)` —
+  inclusive start, EXCLUSIVE end, the same shape `on_date_range_change`
+  reports and `DateHelpers.visible_range/3` returns.
+
+  Uses the same occupancy rule as `on_date?/2`/`last_date/1`, so a timed
+  event running past midnight counts on its spill-over day and an event
+  ending exactly at midnight does not.
+  """
+  @spec in_range?(t(), Date.t(), Date.t()) :: boolean()
+  def in_range?(%__MODULE__{} = event, %Date{} = range_start, %Date{} = range_end) do
+    Date.compare(last_date(event), range_start) != :lt and
+      Date.compare(first_date(event), range_end) == :lt
+  end
+
   # Compare two date/datetime values regardless of type
   defp compare(%Date{} = a, %Date{} = b), do: Date.compare(a, b)
   defp compare(%DateTime{} = a, %DateTime{} = b), do: DateTime.compare(a, b)

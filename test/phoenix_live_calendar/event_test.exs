@@ -227,4 +227,39 @@ defmodule PhoenixLiveCalendar.EventTest do
       refute Event.overlaps_range?(event, ~U[2026-04-01 11:00:00Z], ~U[2026-04-01 12:00:00Z])
     end
   end
+
+  describe "first_date/1 and in_range?/3" do
+    test "first_date is the start's calendar date" do
+      assert Event.first_date(%Event{id: 1, start: ~D[2026-04-05]}) == ~D[2026-04-05]
+      assert Event.first_date(%Event{id: 1, start: ~U[2026-04-05 22:00:00Z]}) == ~D[2026-04-05]
+    end
+
+    test "in_range? is inclusive-start, exclusive-end" do
+      event = %Event{id: 1, start: ~D[2026-04-05], end: ~D[2026-04-06], all_day: true}
+
+      assert Event.in_range?(event, ~D[2026-04-05], ~D[2026-04-06])
+      assert Event.in_range?(event, ~D[2026-04-01], ~D[2026-04-06])
+      refute Event.in_range?(event, ~D[2026-04-06], ~D[2026-04-10])
+      refute Event.in_range?(event, ~D[2026-04-01], ~D[2026-04-05])
+    end
+
+    test "a multi-day event straddling a range boundary is in range" do
+      event = %Event{id: 1, start: ~D[2026-03-28], end: ~D[2026-04-03], all_day: true}
+
+      assert Event.in_range?(event, ~D[2026-04-01], ~D[2026-05-01])
+      assert Event.in_range?(event, ~D[2026-03-01], ~D[2026-03-29])
+    end
+
+    test "a midnight-crossing timed event counts on its spill-over day" do
+      event = %Event{id: 1, start: ~U[2026-03-31 22:00:00Z], end: ~U[2026-04-01 01:00:00Z]}
+
+      assert Event.in_range?(event, ~D[2026-04-01], ~D[2026-05-01])
+    end
+
+    test "an event ending exactly at midnight does not spill over" do
+      event = %Event{id: 1, start: ~U[2026-03-31 22:00:00Z], end: ~U[2026-04-01 00:00:00Z]}
+
+      refute Event.in_range?(event, ~D[2026-04-01], ~D[2026-05-01])
+    end
+  end
 end

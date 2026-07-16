@@ -162,8 +162,8 @@ defmodule PhoenixLiveCalendar.Utils.DateHelpers do
     {date, Date.add(date, n)}
   end
 
-  def visible_range(:agenda, %Date{} = date, _opts) do
-    {date, Date.add(date, 30)}
+  def visible_range(:agenda, %Date{} = date, opts) do
+    {date, Date.add(date, Keyword.get(opts, :days, 30))}
   end
 
   def visible_range(:timeline, %Date{} = date, _opts) do

@@ -434,6 +434,46 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     end
   end
 
+  describe "events_mode windowing" do
+    test ":window keeps events straddling the visible range boundary" do
+      # Spills into the June grid from May — trimming it would visibly drop
+      # the bar segments in the first June cells.
+      event = %PhoenixLiveCalendar.Event{
+        id: "straddle",
+        start: ~D[2026-05-30],
+        end: ~D[2026-06-03],
+        title: "Straddler",
+        all_day: true
+      }
+
+      html = render_html(:month, %{events: [event], events_mode: :window})
+
+      assert html =~ "Straddler"
+    end
+
+    test ":window renders in-range events identically to :full" do
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~D[2026-06-10],
+        title: "In range",
+        all_day: true
+      }
+
+      far_event = %PhoenixLiveCalendar.Event{
+        id: "2",
+        start: ~D[2026-12-24],
+        title: "Far away",
+        all_day: true
+      }
+
+      windowed = render_html(:month, %{events: [event, far_event], events_mode: :window})
+      full = render_html(:month, %{events: [event, far_event]})
+
+      assert windowed =~ "In range"
+      assert windowed == full
+    end
+  end
+
   describe "slot forwarding" do
     # The views always had :event/:day_cell/... slots, but the documented
     # entrypoint declared none and never forwarded them — wrapper users

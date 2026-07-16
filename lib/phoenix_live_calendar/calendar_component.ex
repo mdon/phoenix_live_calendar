@@ -178,6 +178,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       assigns
       |> assign_defaults()
       |> assign_title()
+      |> filter_events_by_window()
       |> filter_events_by_visibility()
 
     ~H"""
@@ -732,6 +733,38 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp default_min_visibility(:resource), do: 10
   defp default_min_visibility(_), do: 10
 
+  # `events_mode: :window` trims the parent's event list to those occupying
+  # the visible range before any view work — the range-driven scaling model:
+  # the parent fetches around `on_date_range_change` and may over-fetch
+  # freely; the component renders only the visible slice. The window is the
+  # SAME `[start, end)` range the callback reports. `:full` (default) trusts
+  # the list as-is — identical to pre-0.3 behavior.
+  defp filter_events_by_window(assigns) do
+    case assigns[:events_mode] do
+      :window ->
+        opts = [
+          week_start: assigns[:week_start] || 1,
+          days: assigns[:agenda_days] || 30
+        ]
+
+        {range_start, range_end} =
+          DateHelpers.visible_range(
+            normalize_view(assigns.internal_view),
+            assigns.internal_date,
+            opts
+          )
+
+        events =
+          (assigns[:events] || [])
+          |> Enum.filter(&Event.in_range?(&1, range_start, range_end))
+
+        assign(assigns, :events, events)
+
+      _ ->
+        assigns
+    end
+  end
+
   defp filter_events_by_visibility(assigns) do
     case assigns[:min_visibility] do
       # Explicit override: use the given value
@@ -902,7 +935,11 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp notify_date_range_change(socket) do
     view = socket.assigns.internal_view
     date = socket.assigns.internal_date
-    opts = [week_start: Map.get(socket.assigns, :week_start, 1)]
+
+    opts = [
+      week_start: Map.get(socket.assigns, :week_start, 1),
+      days: Map.get(socket.assigns, :agenda_days) || 30
+    ]
 
     {start_date, end_date} = DateHelpers.visible_range(normalize_view(view), date, opts)
 

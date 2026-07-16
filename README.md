@@ -155,6 +155,8 @@ end
 | `translations` | map | `%{}` | Label overrides |
 | `business_hours` | list | `[]` | Availability windows to highlight |
 | `today` | Date | UTC today | Timezone-correct today; also seeds the starting month when `date` is unset |
+| `now` | Time | UTC now | Wall-clock time for the now indicator; pass the viewer's local time with a timezone-correct `today` |
+| `events_mode` | atom | `:full` | `:window` trims `events` to those occupying the visible range — pair with `on_date_range_change` for range-driven fetching |
 | `day_markers` | list | `[]` | `DayMarker` structs — cell tints + corner labels; a marker's own `color`/`text_color`/`class`/`show_label: false` enable heatmap-style month views |
 | `filter_to_date` | boolean | `true` | Timeline: only render events occupying the displayed date |
 | `clamp_to_date` | boolean | `true` | Timeline: clamp midnight-crossing events to the displayed date (23:50→00:20 renders on both days correctly) |
