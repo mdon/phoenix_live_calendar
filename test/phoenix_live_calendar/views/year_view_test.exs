@@ -91,4 +91,26 @@ defmodule PhoenixLiveCalendar.Views.YearViewTest do
       refute html =~ "cal-mini-marked"
     end
   end
+
+  describe "mini event dots" do
+    test "dots sit below the date with a gap and take the event's color" do
+      events = [
+        %PhoenixLiveCalendar.Event{
+          id: "1",
+          start: ~D[2026-06-15],
+          title: "Launch",
+          all_day: true,
+          color: :accent
+        }
+      ]
+
+      assigns = %{year: 2026, events: events}
+      html = render(~H"<.year_view year={@year} events={@events} />")
+
+      # resolved event color, not a hardcoded primary dot; no negative margin
+      # (it used to fuse a same-color dot onto the today pill)
+      assert html =~ "bg-accent"
+      refute html =~ "-mt-0.5"
+    end
+  end
 end

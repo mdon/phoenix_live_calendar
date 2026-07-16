@@ -110,7 +110,7 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
 
               <div
                 :if={mini_dot(Map.get(@markers_by_date, date, []))}
-                class="flex justify-center -mt-0.5"
+                class="flex justify-center mt-px"
               >
                 <span
                   class={[
@@ -122,13 +122,19 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
                 </span>
               </div>
 
+              <%!-- Event dots: a whisker of space below the date (a negative
+                   margin used to fuse a primary dot onto the today pill), in
+                   the event's resolved color --%>
               <div
                 :if={Map.get(@events_by_date, date, []) != []}
-                class="flex justify-center gap-0.5 -mt-0.5"
+                class="flex justify-center gap-0.5 mt-px"
               >
                 <div
-                  :for={_event <- Enum.take(Map.get(@events_by_date, date, []), 3)}
-                  class="w-1 h-1 rounded-full bg-primary"
+                  :for={event <- Enum.take(Map.get(@events_by_date, date, []), 3)}
+                  class={[
+                    "w-1 h-1 rounded-full",
+                    PhoenixLiveCalendar.Theme.bg(event.color) || "bg-primary"
+                  ]}
                 >
                 </div>
               </div>
