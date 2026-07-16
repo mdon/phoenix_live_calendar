@@ -457,6 +457,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     <YearView.year_view
       year={@date.year}
       events={@events}
+      day_markers={@day_markers}
       selected_date={@selected_date}
       today={@today}
       week_start={@week_start}

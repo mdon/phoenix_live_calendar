@@ -18,6 +18,8 @@ defmodule PhoenixLiveCalendar.Views.YearView do
 
   - `year` — The year to display
   - `events` — List of `PhoenixLiveCalendar.Event` structs (used for dot indicators)
+  - `day_markers` — List of `PhoenixLiveCalendar.DayMarker` structs; custom
+    marker colors tint the mini cells (year-scale heatmap)
   - `selected_date` — Currently selected date
   - `today` — Today's date
   - `week_start` — First day of week (default: 1)
@@ -28,6 +30,7 @@ defmodule PhoenixLiveCalendar.Views.YearView do
   """
   attr :year, :integer, required: true
   attr :events, :list, default: []
+  attr :day_markers, :list, default: []
   attr :selected_date, Date, default: nil
   attr :today, Date, default: nil
   attr :week_start, :integer, default: 1
@@ -44,7 +47,11 @@ defmodule PhoenixLiveCalendar.Views.YearView do
         date = Date.new!(assigns.year, month, 1)
         grid_dates = DateHelpers.month_grid(date, week_start: assigns.week_start)
         events_by_date = DateHelpers.group_events_by_date(assigns.events, grid_dates)
-        {date, events_by_date}
+
+        markers_by_date =
+          PhoenixLiveCalendar.DayMarker.group_by_date(assigns.day_markers, grid_dates)
+
+        {date, events_by_date, markers_by_date}
       end)
 
     assigns =
@@ -62,12 +69,13 @@ defmodule PhoenixLiveCalendar.Views.YearView do
       role="grid"
       aria-label={I18n.format_title(:year, Date.new!(@year, 1, 1))}
     >
-      <div :for={{date, events_by_date} <- @months} class="cal-year-month">
+      <div :for={{date, events_by_date, markers_by_date} <- @months} class="cal-year-month">
         <MiniCalendar.mini_calendar
           date={date}
           selected_date={@selected_date}
           today={@today}
           events_by_date={events_by_date}
+          markers_by_date={markers_by_date}
           on_date_click={@on_date_click}
           week_start={@week_start}
           translations={@translations}

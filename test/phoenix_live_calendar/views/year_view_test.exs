@@ -57,5 +57,38 @@ defmodule PhoenixLiveCalendar.Views.YearViewTest do
 
       assert html =~ "rounded-full bg-primary"
     end
+
+    test "day marker colors tint the mini cells (year-scale heatmap)" do
+      markers =
+        PhoenixLiveCalendar.Heatmap.markers(
+          %{~D[2026-06-10] => 20, ~D[2026-06-11] => 100},
+          max: 100
+        )
+
+      assigns = %{year: 2026, markers: markers}
+
+      html = render(~H"<.year_view year={@year} day_markers={@markers} />")
+
+      assert html =~ "cal-mini-marked"
+      assert html =~ "bg-success/20"
+      assert html =~ "bg-success"
+    end
+
+    test "markers without a custom color leave the mini cells untinted" do
+      markers = [
+        %PhoenixLiveCalendar.DayMarker{
+          id: "notice",
+          label: "Notice",
+          start_date: ~D[2026-06-10],
+          type: :notice
+        }
+      ]
+
+      assigns = %{year: 2026, markers: markers}
+
+      html = render(~H"<.year_view year={@year} day_markers={@markers} />")
+
+      refute html =~ "cal-mini-marked"
+    end
   end
 end

@@ -16,6 +16,8 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
   - `selected_date` — Currently selected date (highlighted)
   - `today` — Today's date (for "today" indicator)
   - `events_by_date` — Map of `%{Date.t() => [Event.t()]}` for dot indicators
+  - `markers_by_date` — Map of `%{Date.t() => [DayMarker.t()]}`; a marker's
+    custom `color` tints the mini cell (heatmap intensity at year scale)
   - `on_date_click` — Event handler for date clicks
   - `week_start` — First day of week (1-7, default: 1)
   - `translations` — Translation overrides
@@ -26,6 +28,7 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
   attr :selected_date, Date, default: nil
   attr :today, Date, default: nil
   attr :events_by_date, :map, default: %{}
+  attr :markers_by_date, :map, default: %{}
   attr :on_date_click, :any, default: nil
   attr :week_start, :integer, default: 1
   attr :translations, :map, default: %{}
@@ -73,7 +76,8 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
               :for={date <- week}
               class={[
                 "cal-mini-cell p-0.5",
-                not DateHelpers.in_month?(date, @date) && "text-base-content/30"
+                not DateHelpers.in_month?(date, @date) && "text-base-content/30",
+                marker_color(Map.get(@markers_by_date, date, []))
               ]}
               role="gridcell"
               aria-selected={to_string(date == @selected_date)}
@@ -120,5 +124,15 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
       </table>
     </div>
     """
+  end
+
+  # First custom marker color for the date, plus a hook class. Type-based
+  # tints are deliberately not rendered at mini scale — only explicit colors
+  # (the heatmap case).
+  defp marker_color(markers) do
+    case Enum.find_value(markers, & &1.color) do
+      nil -> nil
+      color -> ["cal-mini-marked", color]
+    end
   end
 end
