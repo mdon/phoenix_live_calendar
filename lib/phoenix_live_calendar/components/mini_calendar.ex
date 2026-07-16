@@ -133,7 +133,7 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
                   :for={event <- Enum.take(Map.get(@events_by_date, date, []), 3)}
                   class={[
                     "w-1 h-1 rounded-full",
-                    PhoenixLiveCalendar.Theme.bg(event.color) || "bg-primary"
+                    PhoenixLiveCalendar.Theme.bg(Map.get(event, :color)) || "bg-primary"
                   ]}
                 >
                 </div>
