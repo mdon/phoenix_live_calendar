@@ -323,6 +323,62 @@ defmodule PhoenixLiveCalendar.Event do
   def first_date(%__MODULE__{} = event), do: to_date(event.start)
 
   @doc """
+  The times this event's block occupies on ONE day, clipped to the visible
+  `[min_time, max_time]` window — or `nil` when nothing of it is visible
+  that day. The single source of truth for per-day time-grid segments:
+
+  - a midnight-crossing event runs to end-of-day on its first day and from
+    00:00 on its last (the raw EXCLUSIVE end date decides the split, so an
+    event ending exactly at midnight still renders on its start day)
+  - all-day events span the whole visible window
+  """
+  @spec day_window(t(), Date.t(), Time.t(), Time.t()) :: {Time.t(), Time.t()} | nil
+  def day_window(
+        %__MODULE__{} = event,
+        %Date{} = date,
+        min_time \\ ~T[00:00:00],
+        max_time \\ ~T[23:59:59]
+      ) do
+    {seg_start, seg_end} =
+      if all_day?(event) do
+        {~T[00:00:00], ~T[23:59:59]}
+      else
+        event_end = effective_end(event)
+
+        seg_start =
+          if Date.compare(first_date(event), date) == :lt,
+            do: ~T[00:00:00],
+            else: time_part(event.start)
+
+        seg_end =
+          if Date.compare(to_date(event_end), date) == :gt,
+            do: ~T[23:59:59],
+            else: time_part(event_end)
+
+        {seg_start, seg_end}
+      end
+
+    seg_start = if Time.compare(seg_start, min_time) == :lt, do: min_time, else: seg_start
+    seg_end = if Time.compare(seg_end, max_time) == :gt, do: max_time, else: seg_end
+
+    if Time.compare(seg_start, seg_end) == :lt, do: {seg_start, seg_end}
+  end
+
+  defp time_part(%Date{}), do: ~T[00:00:00]
+  defp time_part(%DateTime{} = dt), do: DateTime.to_time(dt)
+  defp time_part(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_time(ndt)
+
+  @doc """
+  Whether the event belongs on a resource's row/column — matches the
+  singular `resource_id` OR membership in the plural `resource_ids`.
+  """
+  @spec on_resource?(t(), term()) :: boolean()
+  def on_resource?(%__MODULE__{} = event, resource_id) do
+    event.resource_id == resource_id or
+      (is_list(event.resource_ids) and resource_id in event.resource_ids)
+  end
+
+  @doc """
   Whether the event occupies any date in `[range_start, range_end)` —
   inclusive start, EXCLUSIVE end, the same shape `on_date_range_change`
   reports and `DateHelpers.visible_range/3` returns.

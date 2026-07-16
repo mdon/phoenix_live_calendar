@@ -136,11 +136,11 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     track_rem =
       max(Utils.Sizing.parse_rem(assigns.slot_width, 5.0) * max(length(slots), 1), 1.0)
 
+    # An event targets a row via resource_id OR the plural resource_ids.
     bars_by_resource =
-      events
-      |> Enum.group_by(fn event -> event.resource_id end)
-      |> Map.new(fn {resource_id, row_events} ->
-        {resource_id, row_bars(row_events, assigns, min_time, max_time, track_rem)}
+      Map.new(assigns.resources, fn resource ->
+        row_events = Enum.filter(events, &Event.on_resource?(&1, resource.id))
+        {resource.id, row_bars(row_events, assigns, min_time, max_time, track_rem)}
       end)
 
     today = assigns.today || Date.utc_today()
@@ -431,12 +431,12 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   end
 
   defp visible_window(assigns, events) do
-    rendered_resources = MapSet.new(assigns.resources, & &1.id)
-
     windows =
       events
       |> Enum.reject(&Event.all_day?/1)
-      |> Enum.filter(&MapSet.member?(rendered_resources, &1.resource_id))
+      |> Enum.filter(fn event ->
+        Enum.any?(assigns.resources, &Event.on_resource?(event, &1.id))
+      end)
       |> Enum.map(&event_window(&1, assigns.date, assigns.clamp_to_date))
 
     with [_ | _] <- windows,

@@ -100,6 +100,17 @@ defmodule PhoenixLiveCalendar.Utils.Safe do
   def sanitize_css_dimension(_, fallback), do: fallback
 
   @doc """
+  A sanitized CSS height floor, or `nil` when disabled. `nil`, `""` and a
+  bare `"0"` disable the floor OUTSIDE the sanitizer — its unit-required
+  regex would otherwise reject the zero and substitute the fallback,
+  installing a floor the caller asked to remove.
+  """
+  @spec height_floor(String.t() | nil, String.t()) :: String.t() | nil
+  def height_floor(value, fallback \\ "1.25rem")
+  def height_floor(value, _fallback) when value in [nil, "", "0"], do: nil
+  def height_floor(value, fallback), do: sanitize_css_dimension(value, fallback)
+
+  @doc """
   Safely filters events, skipping any that would cause errors.
   """
   def safe_filter_events(events) when is_list(events) do

@@ -603,7 +603,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       slot_duration={@slot_duration}
       slot_height={@slot_height}
       show_now_indicator={@show_now_indicator}
+      today={@today}
       now={@now}
+      event_content={@event_content}
+      dir={@dir}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       translations={@translations}

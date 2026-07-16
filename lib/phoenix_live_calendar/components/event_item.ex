@@ -129,6 +129,28 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
     """
   end
 
+  # Content-tier thresholds: the minimum estimated block height (rem) for
+  # each layout. 3.25rem fits three text-xs lines + padding; 1.75 two; 1.25
+  # one. Shared by every time grid so the ladder can't drift between views.
+  @detail_min_rem 3.25
+  @inline_min_rem 1.75
+  @title_min_rem 1.25
+
+  @doc """
+  The content tier for an event block of an estimated height (rem):
+  `:detail` ≥ #{@detail_min_rem}, `:inline` ≥ #{@inline_min_rem},
+  `:title` ≥ #{@title_min_rem}, else `:none` — whole text lines or none.
+  """
+  @spec tier_for_height(number()) :: :detail | :inline | :title | :none
+  def tier_for_height(h_rem) do
+    cond do
+      h_rem >= @detail_min_rem -> :detail
+      h_rem >= @inline_min_rem -> :inline
+      h_rem >= @title_min_rem -> :title
+      true -> :none
+    end
+  end
+
   attr :event, PhoenixLiveCalendar.Event, required: true
   attr :content, :atom, default: :inline
   attr :time_format, :atom, default: :h24

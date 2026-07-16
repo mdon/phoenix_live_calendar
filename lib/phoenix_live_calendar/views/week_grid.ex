@@ -415,32 +415,9 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     [bg, text]
   end
 
-  # The times an event's block occupies on ONE day column, clipped to the
-  # visible [min_time, max_time] window — or nil when nothing of it is
-  # visible that day. A midnight-crossing 21:30 -> 01:00 event used to
-  # position by raw time-of-day on BOTH its days: negative height, floored
-  # to a phantom sliver at 21:30 on each column (same bug class the
-  # timeline's clamp fixed).
+  # Delegates to the shared per-day segment rule (see Event.day_window/4).
   defp day_window(event, date, min_time, max_time) do
-    seg_start =
-      if Date.compare(Event.first_date(event), date) == :lt,
-        do: ~T[00:00:00],
-        else: TimeSlots.to_time(event.start)
-
-    event_end = Event.effective_end(event)
-
-    # Compare the raw (exclusive) end DATE, not last_date: a timed event
-    # ending exactly at midnight has last_date == its start date, which
-    # inverted the segment (22:00 > 00:00) and silently dropped the event.
-    seg_end =
-      if Date.compare(to_date(event_end), date) == :gt,
-        do: ~T[23:59:59],
-        else: TimeSlots.to_time(event_end)
-
-    seg_start = if Time.compare(seg_start, min_time) == :lt, do: min_time, else: seg_start
-    seg_end = if Time.compare(seg_end, max_time) == :gt, do: max_time, else: seg_end
-
-    if Time.compare(seg_start, seg_end) == :lt, do: {seg_start, seg_end}
+    Event.day_window(event, date, min_time, max_time)
   end
 
   defp event_position_style_with_overlap(event, date, layout_map, min_time, max_time, min_height) do
@@ -466,24 +443,14 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     end
   end
 
-  # "0" (and nil/"") disable the floor OUTSIDE the CSS sanitizer — the
-  # sanitizer requires a unit, so a bare "0" used to fail its regex and come
-  # back as the fallback, installing a floor the caller asked to remove.
-  defp height_floor(min_height) when min_height in [nil, "", "0"], do: nil
-  defp height_floor(min_height), do: Safe.sanitize_css_dimension(min_height, "1.25rem")
+  defp height_floor(min_height), do: Safe.height_floor(min_height)
 
   # Content tier from the block's estimated height (whole text lines or
-  # nothing — never a mid-glyph clip).
+  # nothing — never a mid-glyph clip). Thresholds live in EventItem.
   defp event_tier(event, date, :auto, min_time, max_time, rem_per_minute) do
     {seg_start, seg_end} = day_window(event, date, min_time, max_time)
     h_rem = Time.diff(seg_end, seg_start) / 60 * rem_per_minute
-
-    cond do
-      h_rem >= 3.25 -> :detail
-      h_rem >= 1.75 -> :inline
-      h_rem >= 1.25 -> :title
-      true -> :none
-    end
+    EventItem.tier_for_height(h_rem)
   end
 
   defp event_tier(_event, _date, forced, _min_time, _max_time, _rpm), do: forced

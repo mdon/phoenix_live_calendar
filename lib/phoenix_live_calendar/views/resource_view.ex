@@ -10,7 +10,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
 
   alias PhoenixLiveCalendar.Components.{EventItem, TimeGutter}
   alias PhoenixLiveCalendar.Event
-  alias PhoenixLiveCalendar.Utils.TimeSlots
+  alias PhoenixLiveCalendar.Utils.{Safe, Sizing, TimeSlots}
 
   @doc """
   Renders a resource-column time grid.
@@ -24,12 +24,24 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
   - `max_time` — Latest visible time (default: `~T[23:59:59]`)
   - `slot_duration` — Slot duration in minutes (default: 30)
   - `slot_height` — CSS height per slot (default: "3rem")
-  - `show_now_indicator` — Show current time line (default: true)
+  - `show_now_indicator` — Show current time line (default: true; hidden
+    when `now` falls outside the visible window)
+  - `today` — Today's date for the now indicator (default: `Date.utc_today()`)
+  - `now` — Current wall-clock time (default: `Time.utc_now()`)
+  - `event_content` — `:auto` (default) tiers each block's content by its
+    estimated height, like the week grid; pass a tier to force it
+  - `min_event_height` — CSS floor for a block's height (default
+    `"1.25rem"`; `"0"` disables)
   - `on_time_click` — Handler for time slot clicks
   - `on_event_click` — Handler for event clicks
   - `translations` — Translation overrides
   - `time_format` — `:h24` or `:h12` (default: `:h24`)
   - `class` — Additional CSS classes
+  - `dir` — Text direction (default: `:ltr`)
+
+  Events are filtered to those occupying `date` (an event may target a
+  column via `resource_id` or the plural `resource_ids`); midnight-crossing
+  events clamp to the date like the week grid and timeline.
 
   ## Slots
 
@@ -50,12 +62,20 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
   attr :slot_duration, :integer, default: 30
   attr :slot_height, :string, default: "3rem"
   attr :show_now_indicator, :boolean, default: true
+  attr :today, Date, default: nil
   attr :now, Time, default: nil
+
+  attr :event_content, :atom,
+    default: :auto,
+    values: [:auto, :detail, :inline, :title, :none]
+
+  attr :min_event_height, :string, default: "1.25rem"
   attr :on_time_click, :any, default: nil
   attr :on_event_click, :any, default: nil
   attr :translations, :map, default: %{}
   attr :time_format, :atom, default: :h24
   attr :class, :string, default: ""
+  attr :dir, :atom, default: :ltr
 
   slot :event
   slot :resource_header
@@ -68,12 +88,22 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
         slot_duration: assigns.slot_duration
       )
 
+    # Only events occupying the displayed date render (an off-date event
+    # used to position by raw time-of-day); resource_ids (plural) targets
+    # an event at several columns.
+    day_events = Enum.filter(assigns.events, &Event.on_date?(&1, assigns.date))
+
     events_by_resource =
-      Enum.group_by(assigns.events, & &1.resource_id)
+      Map.new(assigns.resources, fn resource ->
+        {resource.id, Enum.filter(day_events, &Event.on_resource?(&1, resource.id))}
+      end)
 
     now = assigns.now || Time.utc_now()
-    today = Date.utc_today()
+    today = assigns.today || Date.utc_today()
     col_count = length(assigns.resources)
+
+    rem_per_minute =
+      Sizing.parse_rem(assigns.slot_height, 3.0) / max(assigns.slot_duration, 1)
 
     assigns =
       assigns
@@ -82,9 +112,15 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
       |> assign(:now, now)
       |> assign(:today, today)
       |> assign(:col_count, col_count)
+      |> assign(:rem_per_minute, rem_per_minute)
+      |> assign(
+        :now_in_window?,
+        Time.compare(now, assigns.min_time) != :lt and
+          Time.compare(now, assigns.max_time) != :gt
+      )
 
     ~H"""
-    <div class={["cal-resource-view flex flex-col", @class]}>
+    <div class={["cal-resource-view flex flex-col", @class]} dir={to_string(@dir)}>
       <%!-- Resource headers --%>
       <div class="cal-resource-headers flex border-b border-base-200">
         <div class="w-16 flex-shrink-0"></div>
@@ -130,7 +166,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
             <div
               :for={slot <- @slots}
               class="cal-time-slot border-b border-base-200"
-              style={"height: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@slot_height)}"}
+              style={"height: #{Safe.sanitize_css_dimension(@slot_height)}"}
               phx-click={@on_time_click}
               phx-value-resource-id={resource.id}
               phx-value-date={Date.to_iso8601(@date)}
@@ -142,19 +178,23 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
             <div class="absolute inset-0 pointer-events-none">
               <div
                 :for={event <- Map.get(@events_by_resource, resource.id, [])}
-                class="absolute left-0.5 right-0.5 pointer-events-auto z-10"
-                style={event_position_style(event, @min_time, @max_time)}
+                :if={Event.day_window(event, @date, @min_time, @max_time)}
+                class="absolute start-0.5 end-0.5 pointer-events-auto z-10"
+                style={event_position_style(event, @date, @min_time, @max_time, @min_event_height)}
               >
                 <%= if @event != [] do %>
                   {render_slot(@event, event)}
                 <% else %>
                   <EventItem.event_item
                     event={event}
+                    content={
+                      event_tier(event, @date, @event_content, @min_time, @max_time, @rem_per_minute)
+                    }
                     id_suffix={instance_suffix(@id, resource.id)}
                     on_click={@on_event_click}
                     time_format={@time_format}
                     default_color="bg-primary/80"
-                    class="h-full text-xs border-l-2 border-primary"
+                    class="h-full text-xs border-s-2 border-primary"
                   />
                 <% end %>
               </div>
@@ -162,7 +202,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
 
             <%!-- Now indicator --%>
             <TimeGutter.now_indicator
-              :if={@show_now_indicator && @date == @today}
+              :if={@show_now_indicator && @date == @today && @now_in_window?}
               current_time={@now}
               min_time={@min_time}
               max_time={@max_time}
@@ -174,16 +214,27 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
     """
   end
 
-  defp event_position_style(event, min_time, max_time) do
-    start_time = TimeSlots.to_time(event.start)
-    end_time = TimeSlots.to_time(Event.effective_end(event))
+  # Shared per-day segment rule + the rem floor (the old 1.5% floor changed
+  # real size with the visible window) — the week grid's geometry.
+  defp event_position_style(event, date, min_time, max_time, min_height) do
+    {start_time, end_time} = Event.day_window(event, date, min_time, max_time)
 
     top = TimeSlots.time_to_percentage(start_time, min_time: min_time, max_time: max_time)
     bottom = TimeSlots.time_to_percentage(end_time, min_time: min_time, max_time: max_time)
     height = bottom - top
 
-    "top: #{top}%; height: #{max(height, 1.5)}%"
+    case Safe.height_floor(min_height) do
+      nil -> "top: #{top}%; height: #{height}%"
+      floor -> "top: min(#{top}%, calc(100% - #{floor})); height: max(#{height}%, #{floor})"
+    end
   end
+
+  defp event_tier(event, date, :auto, min_time, max_time, rem_per_minute) do
+    {seg_start, seg_end} = Event.day_window(event, date, min_time, max_time)
+    EventItem.tier_for_height(Time.diff(seg_end, seg_start) / 60 * rem_per_minute)
+  end
+
+  defp event_tier(_event, _date, forced, _min, _max, _rpm), do: forced
 
   defp instance_suffix(nil, key), do: key
   defp instance_suffix(id, key), do: "#{id}-#{key}"
