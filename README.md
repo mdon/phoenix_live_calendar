@@ -21,7 +21,8 @@ richer interaction; never depend on them for the page to look right.
 
 - **8 view types**: Month, Week, Day, N-day (flexible), Year, Agenda, Timeline, Resource columns
 - **Pure Elixir base layer**: Works without any JavaScript
-- **Heatmaps**: `Heatmap.markers/2` maps per-day numbers onto intensity-tinted month/year cells (GitHub-contributions style)
+- **Heatmaps**: `Heatmap.markers/2` maps per-day numbers onto intensity-tinted month/year cells (GitHub-contributions style) — `:fill` or quieter `:dot` style, palette presets (`:success`/`:heat`/`:cool`/`:mono`)
+- **Widgets**: `Widgets.next_events/week_strip/activity_grid/mini_timeline` + `MiniCalendar` — the most compressed useful form of each surface for ~200×150px dashboard cells
 - **Layers**: named event sets with a legend of toggle chips, filtered server-side — withheld layers never reach the client
 - **Semantic color tokens**: `Event.color` takes `:primary`-style atoms or app-configured tokens as well as raw classes
 - **Customization slots** forwarded through the `CalendarComponent` (`:event`, `:day_cell`, `:time_label`, …)
@@ -165,7 +166,10 @@ end
 | `events_mode` | atom | `:full` | `:window` trims `events` to those occupying the visible range — pair with `on_date_range_change` for range-driven fetching |
 | `layers` | list | `[]` | `Layer` structs — legend toggle chips; hidden layers' events are filtered server-side; events inherit their layer's color |
 | `show_legend` | boolean | `true` | Hide the layer legend row |
-| `event_detail` | boolean | `true` | Week/day event blocks stack title / start–end range / location (short blocks clip to the title); `false` = one-line layout |
+| `event_content` | atom | `:auto` | Week/day block content by estimated height: `:detail` / `:inline` / `:title` / `:none` tiers — whole lines or none, never clipped text; pass a tier to force it |
+| `min_event_height` | string | `"1.25rem"` | Height floor for week/day event blocks (one text line); `"0"` disables |
+| `header_layout` | atom | `:auto` | Toolbar collapses to a start-aligned row when both wings are empty; `:centered`/`:start` force |
+| `label_position` | atom | `:fit` | Timeline bar labels: inside when the estimate fits, else outside beside the bar (`label_fit_fallback: :none` to suppress); `:inside`/`:outside`/`:none` force |
 | `day_markers` | list | `[]` | `DayMarker` structs — cell tints + labels in the month, week, day AND year views; a marker's own `color`/`text_color`/`class`/`show_label: false` enable heatmap-style views |
 | `filter_to_date` | boolean | `true` | Timeline: only render events occupying the displayed date |
 | `clamp_to_date` | boolean | `true` | Timeline: clamp midnight-crossing events to the displayed date (23:50→00:20 renders on both days correctly) |
