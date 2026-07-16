@@ -40,6 +40,7 @@ defmodule PhoenixLiveCalendar.Views.Agenda do
   attr :time_format, :atom, default: :h24
   attr :show_empty_days, :boolean, default: false
   attr :class, :string, default: ""
+  attr :dir, :atom, default: :ltr
 
   slot :event
   slot :day_header
@@ -66,7 +67,12 @@ defmodule PhoenixLiveCalendar.Views.Agenda do
       |> assign(:has_events, has_events)
 
     ~H"""
-    <div class={["cal-agenda", @class]} role="list" aria-label={I18n.label(:agenda, @translations)}>
+    <div
+      class={["cal-agenda", @class]}
+      role="list"
+      aria-label={I18n.label(:agenda, @translations)}
+      dir={to_string(@dir)}
+    >
       <%= if @has_events or @show_empty_days do %>
         <div :for={{date, day_events} <- @grouped} class="cal-agenda-day">
           <%!-- Day header --%>

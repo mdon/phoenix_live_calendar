@@ -38,6 +38,7 @@ defmodule PhoenixLiveCalendar.Views.YearView do
   attr :on_date_click, :any, default: nil
   attr :translations, :map, default: %{}
   attr :class, :string, default: ""
+  attr :dir, :atom, default: :ltr
 
   def year_view(assigns) do
     today = assigns.today || Date.utc_today()
@@ -68,6 +69,7 @@ defmodule PhoenixLiveCalendar.Views.YearView do
       ]}
       role="grid"
       aria-label={I18n.format_title(:year, Date.new!(@year, 1, 1))}
+      dir={to_string(@dir)}
     >
       <div :for={{date, events_by_date, markers_by_date} <- @months} class="cal-year-month">
         <MiniCalendar.mini_calendar

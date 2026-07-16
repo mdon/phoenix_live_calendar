@@ -316,6 +316,11 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           slot_width={assigns[:slot_width] || "5rem"}
           resource_width={assigns[:resource_width] || "12rem"}
           event_content={assigns[:event_content] || :auto}
+          min_event_height={assigns[:min_event_height] || "1.25rem"}
+          label_position={assigns[:label_position] || :fit}
+          label_fit_ratio={assigns[:label_fit_ratio] || 0.75}
+          label_fit_fallback={assigns[:label_fit_fallback] || :outside}
+          show_time_axis={assigns[:show_time_axis] != false}
           filter_to_date={assigns[:filter_to_date] != false}
           clamp_to_date={assigns[:clamp_to_date] != false}
           sticky_resource_column={assigns[:sticky_resource_column] != false}
@@ -382,6 +387,11 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :slot_width, :string, default: "5rem"
   attr :resource_width, :string, default: "12rem"
   attr :event_content, :atom, default: :auto
+  attr :min_event_height, :string, default: "1.25rem"
+  attr :label_position, :atom, default: :fit
+  attr :label_fit_ratio, :float, default: 0.75
+  attr :label_fit_fallback, :atom, default: :outside
+  attr :show_time_axis, :boolean, default: true
   attr :filter_to_date, :boolean, default: true
   attr :clamp_to_date, :boolean, default: true
   attr :sticky_resource_column, :boolean, default: true
@@ -449,6 +459,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       business_hours={@business_hours}
       day_markers={@day_markers}
       event_content={@event_content}
+      min_event_height={@min_event_height}
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
@@ -480,6 +491,8 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       business_hours={@business_hours}
       day_markers={@day_markers}
       event_content={@event_content}
+      min_event_height={@min_event_height}
+      on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       translations={@translations}
@@ -511,6 +524,8 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       business_hours={@business_hours}
       day_markers={@day_markers}
       event_content={@event_content}
+      min_event_height={@min_event_height}
+      on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       translations={@translations}
@@ -529,6 +544,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       year={@date.year}
       events={@events}
       day_markers={@day_markers}
+      dir={@dir}
       selected_date={@selected_date}
       today={@today}
       week_start={@week_start}
@@ -545,6 +561,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       date={@date}
       events={@events}
       days={@agenda_days}
+      dir={@dir}
       today={@today}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
@@ -577,6 +594,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       now={@now}
       slot_width={@slot_width}
       resource_width={@resource_width}
+      label_position={@label_position}
+      label_fit_ratio={@label_fit_ratio}
+      label_fit_fallback={@label_fit_fallback}
+      show_time_axis={@show_time_axis}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       on_slot_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       translations={@translations}
@@ -606,6 +627,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       today={@today}
       now={@now}
       event_content={@event_content}
+      min_event_height={@min_event_height}
       dir={@dir}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}

@@ -492,6 +492,59 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     end
   end
 
+  describe "0.3 attr threading (sweep)" do
+    test "label_position reaches the timeline through the wrapper" do
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~U[2026-06-15 09:00:00Z],
+        end: ~U[2026-06-15 12:00:00Z],
+        title: "Long morning session",
+        resource_id: "r1"
+      }
+
+      base = %{
+        events: [event],
+        resources: [%PhoenixLiveCalendar.Resource{id: "r1", title: "Room A"}]
+      }
+
+      assert render_html(:timeline, base) =~ "cal-event-content"
+
+      refute render_html(:timeline, Map.put(base, :label_position, :none)) =~
+               "cal-event-content"
+    end
+
+    test "show_time_axis: false reaches the timeline" do
+      base = %{resources: [%PhoenixLiveCalendar.Resource{id: "r1", title: "Room A"}]}
+
+      assert render_html(:timeline, base) =~ "cal-timeline-time-header"
+
+      refute render_html(:timeline, Map.put(base, :show_time_axis, false)) =~
+               "cal-timeline-time-header"
+    end
+
+    test "min_event_height reaches the week grid" do
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~U[2026-06-15 10:00:00Z],
+        end: ~U[2026-06-15 10:05:00Z],
+        title: "Tiny"
+      }
+
+      assert render_html(:week, %{events: [event]}) =~ "1.25rem"
+      assert render_html(:week, %{events: [event], min_event_height: "2rem"}) =~ "2rem"
+    end
+
+    test "on_date_click wiring exists on the day/n-day headers" do
+      assert render_html(:day) =~ "lc_date_click"
+      assert render_html({:n_day, 3}) =~ "lc_date_click"
+    end
+
+    test "dir threads to year and agenda" do
+      assert render_html(:year, %{dir: :rtl}) =~ ~s(dir="rtl")
+      assert render_html(:agenda, %{dir: :rtl}) =~ ~s(dir="rtl")
+    end
+  end
+
   describe "events_mode windowing" do
     test ":window keeps events straddling the visible range boundary" do
       # Spills into the June grid from May — trimming it would visibly drop
