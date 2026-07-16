@@ -104,11 +104,19 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 
 ## Current Status
 
-**All layers implemented. 405 tests passing (82% line coverage; core ~90%+). Zero warnings. Zero credo strict issues. Dialyzer clean.**
+**All layers implemented. ~597 tests passing. Zero warnings. Zero credo strict issues. Dialyzer clean.** (Counts drift — trust `mix test` output over this line.)
 
-- 34 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), 33 test files
+- ~40 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), ~37 test files
 - Layer 0 (Pure Elixir views): Complete — all 8 views
-- Layer 1 (JS hooks): Complete — 8 hooks
+- Layer 1 (JS hooks): Complete — 9 hooks (incl. SyncAnimations)
+- 0.3 wave (2026-07): Theme color tokens, Heatmap (+palettes/:dot),
+  Widgets (next_events / week_strip / activity_grid / activity_month /
+  mini_timeline), Layers + legend, slot forwarding through the component,
+  events_mode :window, timeline label_position, week/day event_content
+  ladder + day markers + all-day lanes, header auto-collapse,
+  per-instance event ids, now attr, resource view parity, plural
+  resource_ids — plus a two-phase quality sweep (in-house triage +
+  external AI quorum)
 - Layer 2 (PubSub): Complete
 - Layer 3 (Booking constraints): Complete
 - Layer 4 (Ecto): Complete
@@ -240,13 +248,20 @@ phoenix_live_calendar/
       # --- Optional PubSub ---
       pubsub.ex                         # Subscribe/broadcast with scoped topics
 
+      # --- 0.3 additions ---
+      theme.ex                          # Semantic color tokens (:primary… + config :color_tokens) -> class pairs
+      heatmap.ex                        # Date=>number -> intensity DayMarkers (palettes, :fill/:dot, classes/2)
+      widgets.ex                        # Compressed dashboard forms: next_events/week_strip/activity_grid/activity_month/mini_timeline
+      layer.ex                          # Layer struct (legend chips; events tagged via Event.layer_id)
+      utils/sizing.ex                   # Server-side rem estimation (parse_rem/label_rem) for tiers + label fit
+
   priv/
     static/
       assets/
-        phoenix_live_calendar.js                # 8 JS hooks (see JS Hooks section)
+        phoenix_live_calendar.js                # 9 JS hooks (see JS Hooks section)
         phoenix_live_calendar.css               # Optional CSS: urgency animations, drag states, prefers-reduced-motion
 
-  test/                                 # 33 test files, 405 tests
+  test/                                 # ~37 test files (see mix test for the live count)
     mix/tasks/
       phoenix_live_calendar_install_test.exs
     phoenix_live_calendar_test.exs
@@ -304,13 +319,24 @@ phoenix_live_calendar/
 - Visual fields: `icon`, `badge`, `border_color`, `color`, `text_color`, `class`
 - All-day events use `Date` type. Timed events use `DateTime` or `NaiveDateTime`.
 - Midnight boundary: events ending at exactly `~T[00:00:00]` do NOT appear on the next day.
+- Grouping fields include `layer_id` (Layers feature) and the plural
+  `resource_ids` (an event can target several timeline/resource rows).
+- `Event.day_window/4` is the single per-day segment rule every time grid
+  uses (midnight-crossers split; exact-midnight ends stay on their day).
+- `color` accepts semantic token atoms and configured tokens (Theme).
 
 **DayMarker struct (date annotations):**
 - `@enforce_keys [:id, :label, :start_date]`
 - Types: `:holiday | :closure | :notice | :label | :season | :custom`
 - `available: false` marks dates as closed (cell gets red tint)
 - Can carry `availability` overrides for reduced hours
-- Rendered as inline labels next to day number in month view (with ticker for cycling when multiple)
+- Styling fields (0.3): `color` (whole-cell tint, tokens resolve via Theme),
+  `text_color`/`class` (label chip), `show_label: false` (tint only — the
+  heatmap case). Shared style helpers live ON DayMarker:
+  `custom_color/semantic_class/type_tint/chip_class/labeled/dot`
+- Rendered in the MONTH grid (cell tint + corner chips w/ ticker), the
+  WEEK/DAY/N-DAY headers (chips + column tints + heat dots), and the
+  YEAR/mini calendars (cell tints + heat dots)
 
 **Resource, Availability, BookingConfig** — see struct files for full field lists.
 
@@ -366,7 +392,11 @@ Timed events use the `OverlapLayout` algorithm for side-by-side column positioni
 
 - **Target: Tailwind CSS / daisyUI.** Components use daisyUI semantic classes (bg-base-100, text-base-content, btn, badge, etc.). This is a deliberate choice — Phoenix 1.7+ ships Tailwind, 90%+ of Phoenix projects use it.
 - **Dark mode contrast:** Uses `border-base-content/N` for borders (not `border-base-200/300`) to ensure visibility across all daisyUI themes, including those with minimal base-level contrast (e.g., phoenix-dark with only 3.65% lightness spread between base-100 and base-300). Opacity levels: container border `/15`, header divider `/15`, week rows `/8`, cell borders `/5`.
-- **NOT framework-agnostic.** A theming/preset system was evaluated and rejected as over-engineering for the audience.
+- **NOT framework-agnostic** at the CSS level, but `PhoenixLiveCalendar.Theme`
+  (0.3) resolves semantic color TOKENS (`:primary`… + app-configured
+  `config :phoenix_live_calendar, :color_tokens`) into class pairs — the
+  data layer no longer hardcodes Tailwind strings. A full CSS theming/preset
+  system beyond tokens remains rejected as over-engineering.
 - **Non-Tailwind users can still use it** via the `class` override attribute on every component element.
 - **TODO (docs phase):** Document all `cal-*` CSS classes used, which daisyUI/Tailwind classes they map to.
 - **`@source` directive required** in consumer's app.css — added by `mix phoenix_live_calendar.install`
@@ -472,6 +502,20 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 | `marker_ticker` | `true` | Enable/disable marker cycling animation |
 | `marker_ticker_interval` | `3000` | Milliseconds between marker transitions |
 | `enable_hooks` | `false` | Attach JS hooks to container for drag interactions |
+| `now` | `Time.utc_now()` | Wall-clock for the now indicators (pass viewer-local with a tz-correct `today`) |
+| `events_mode` | `:full` | `:window` trims events to the visible range (pair with `on_date_range_change`) |
+| `layers` / `show_legend` | `[]` / `true` | Layer structs -> legend toggle chips; hidden layers filtered server-side |
+| `header_layout` | `:auto` | Toolbar collapses to a start row when both wings are empty; `:centered`/`:start` force |
+| `event_content` | `:auto` | Week/day/resource block content tier by estimated height (`:detail`/`:inline`/`:title`/`:none` force) |
+| `min_event_height` | `"1.25rem"` | Height floor for week/day/resource blocks (`"0"` disables) |
+| `label_position` (+`label_fit_ratio`, `label_fit_fallback`) | `:fit` | Timeline bar labels: inside when the estimate fits, else outside/suppressed |
+| `show_time_axis` | `true` | Timeline hour header |
+| `day_markers` | `[]` | DayMarkers render in month, week/day headers AND year/mini |
+
+Slot forwarding: the views' customization slots (`:event`, `:day_cell`,
+`:time_label`, `:resource_label`, `:resource_header`, `:day_header`,
+`:no_events`) pass through `<.live_component>` children into every view
+that supports them; `:info` feeds the toolbar's ⓘ disclosure.
 
 ### View/date sync (controlled vs uncontrolled)
 
@@ -506,6 +550,7 @@ tradeoff and is what keeps user navigation from being discarded.)
 | `lc_event_drop` | `%{event_id, new_date, new_time, resource_id}` | JS: drag-to-move |
 | `lc_event_resize` | `%{event_id, edge, new_time}` | JS: resize |
 | `lc_container_resized` | `%{width: integer}` | JS: ResponsiveContainer |
+| `lc_layer_toggle` | `%{layer: id-string}` | Legend chip click |
 
 ## Callbacks (Parent → Component)
 
@@ -521,6 +566,7 @@ tradeoff and is what keeps user navigation from being discarded.)
 | `on_container_resized` | `%{width}` |
 | `on_view_change` | `%{view, date}` |
 | `on_date_range_change` | `%{start, end, view, date}` |
+| `on_layers_change` | `%{visible: ids, hidden: ids}` |
 
 
 ## JS Hooks
@@ -538,6 +584,7 @@ Packaged as `window.PhoenixLiveCalendarHooks`
 | `ResponsiveContainer` | ResizeObserver, 150ms debounce |
 | `TouchHandler` | Long-press for mobile (500ms) |
 | `PhoenixLiveCalendarContainer` | Composite — initializes TimeRangeSelect, EventDrag, EventResize, ResponsiveContainer, TouchHandler |
+| `SyncAnimations` | Re-anchors CSS animations to one document-timeline origin on mount + subtree changes (MutationObserver/ResizeObserver + per-cell background offsets) so per-cell animations stay in phase across LiveView patches |
 
 
 ## PhoenixKit Demo Page
@@ -574,15 +621,15 @@ App JS setup: `app/assets/js/app.js` imports `phoenix_live_calendar.js` at `../.
 
 5. **Focus management** — Focus restoration after LiveView re-renders and view changes is not implemented. When the user navigates months or switches views, focus drops to `<body>`. Need to save focused cell and restore after patch.
 
-6. **CalendarComponent integration tests** — 0% test coverage. Needs `Phoenix.LiveViewTest` with a test endpoint and router to test the LiveComponent as a whole (event handlers, view switching, navigation).
+6. ~~**CalendarComponent integration tests**~~ — SHIPPED: `calendar_component_test.exs` drives mount/update/handle_event directly and renders every view (no test endpoint needed).
 
-7. **Ecto integration tests** — 0% test coverage on the Ecto layer (`EventSchema`, `EventStoreEcto`, `Migrations`, `RepoHelper`). Needs a test database with Ecto sandbox.
+7. ~~**Ecto integration tests**~~ — MOSTLY SHIPPED: the Ecto layer is covered via a fake repo (schema/store/repo_helper); only the migration DDL stays untested by design (the optional dep must not force Postgres on the suite).
 
 8. **`prefers-reduced-motion`** — CSS is in the optional `phoenix_live_calendar.css` file but not in any auto-included styles. Consumer must manually import it. Should document this more prominently or include it inline.
 
 ### Nice to have
 
-9. **Event overlap layout in resource/timeline views** — `OverlapLayout` is used in week/day/N-day views but not in resource_view or timeline. Events in the same resource at the same time would stack rather than render side-by-side.
+9. **Event overlap layout in resource view** — `OverlapLayout` is used in week/day/N-day views but not resource_view (same-time events in one column stack). The timeline is horizontal (bars overlap by design; labels resolve collisions).
 
 10. **Print styles** — No CSS for printing calendar views.
 
