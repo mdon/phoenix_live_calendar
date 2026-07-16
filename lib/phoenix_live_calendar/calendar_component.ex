@@ -251,7 +251,10 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
         >
           <span
             :if={layer.color}
-            class={["cal-legend-dot w-2.5 h-2.5 rounded-full inline-block", layer.color]}
+            class={[
+              "cal-legend-dot w-2.5 h-2.5 rounded-full inline-block",
+              PhoenixLiveCalendar.Theme.bg(layer.color)
+            ]}
             aria-hidden="true"
           >
           </span>

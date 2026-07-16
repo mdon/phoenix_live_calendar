@@ -9,7 +9,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
   alias PhoenixLiveCalendar.Components.{EventItem, TimeGutter}
   alias PhoenixLiveCalendar.Event
-  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, OverlapLayout, Safe, TimeSlots}
+  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, OverlapLayout, TimeSlots}
 
   @doc """
   Renders a week/day/N-day time grid.
@@ -191,8 +191,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 :for={event <- all_bars}
                 class={[
                   "cal-spanning-bar rounded-sm px-1 py-0.5 text-xs font-medium truncate cursor-pointer mx-px mb-px",
-                  event.color || "bg-primary",
-                  event.text_color || Safe.infer_text_color(event.color),
+                  event_bar_colors(event),
                   event.status == :cancelled && "opacity-50 line-through",
                   event.class
                 ]}
@@ -284,6 +283,12 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   end
 
   # -- Private helpers --
+
+  # One merge rule for bar colors (see PhoenixLiveCalendar.Theme.event_colors/2).
+  defp event_bar_colors(event) do
+    {bg, text} = PhoenixLiveCalendar.Theme.event_colors(event)
+    [bg, text]
+  end
 
   defp event_position_style_with_overlap(event, layout_map, min_time, max_time) do
     start_time = TimeSlots.to_time(event.start)

@@ -10,7 +10,7 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   use Phoenix.Component
 
   alias PhoenixLiveCalendar.Event
-  alias PhoenixLiveCalendar.Utils.{I18n, Safe}
+  alias PhoenixLiveCalendar.Utils.I18n
 
   @doc """
   Renders an event element with status-aware styling.
@@ -71,6 +71,9 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   slot :inner_block
 
   def event_item(assigns) do
+    {bg, text} = PhoenixLiveCalendar.Theme.event_colors(assigns.event, assigns.default_color)
+    assigns = assigns |> assign(:event_bg, bg) |> assign(:event_text, text)
+
     ~H"""
     <div
       id={event_dom_id(@event, @id_suffix)}
@@ -80,8 +83,8 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
         status_class(@event),
         not @compact && urgency_class(@event),
         not @compact && priority_class(@event),
-        @event.color || @default_color,
-        @event.text_color || Safe.infer_text_color(@event.color || @default_color),
+        @event_bg,
+        @event_text,
         @event.class,
         not @compact && border_color_class(@event),
         @on_click && "cursor-pointer hover:brightness-95",

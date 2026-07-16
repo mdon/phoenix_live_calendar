@@ -18,7 +18,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   alias PhoenixLiveCalendar.Components.EventItem
   alias PhoenixLiveCalendar.Event
-  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, Safe, Telemetry}
+  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, Telemetry}
 
   @doc """
   Renders a month grid — six rows of seven days.
@@ -257,8 +257,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                   <div
                     class={[
                       "cal-multiday-bar h-3.5 text-[0.6rem] leading-tight font-medium truncate cursor-pointer px-1 flex items-center",
-                      event.color || "bg-primary",
-                      event.text_color || Safe.infer_text_color(event.color),
+                      event_bar_colors(event),
                       multiday_rounding_class(is_start, is_end),
                       event.status == :cancelled && "opacity-50 line-through",
                       event.class,
@@ -294,8 +293,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                     id={"cal-event-#{event.id}-#{Date.to_iso8601(day)}"}
                     class={[
                       "cal-event cal-event-timed h-3.5 mt-px text-[0.6rem] leading-tight font-medium truncate cursor-pointer px-1 rounded flex items-center",
-                      event.color || "bg-primary",
-                      event.text_color || Safe.infer_text_color(event.color),
+                      event_bar_colors(event),
                       event.status == :cancelled && "opacity-50 line-through",
                       event.class
                     ]}
@@ -747,6 +745,15 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
       true ->
         "text-base-content/30"
     end
+  end
+
+  # One merge rule for bar colors: resolved token/string bg (default
+  # bg-primary) + explicit text_color, else the token pair's text, else
+  # inferred from the APPLIED background (the old code inferred from the raw
+  # color, so a color-less bar got base-content text on a primary bg).
+  defp event_bar_colors(event) do
+    {bg, text} = PhoenixLiveCalendar.Theme.event_colors(event)
+    [bg, text]
   end
 
   defp event_start_date(%Event{} = e) do
