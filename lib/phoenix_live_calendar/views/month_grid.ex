@@ -49,7 +49,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   attr :id, :string,
     default: nil,
     doc:
-      "Optional prefix for generated DOM ids (the marker ticker). Set it when two month grids on one page can show the identical marker set — without it their ticker ids collide."
+      "Optional prefix for generated DOM ids (marker tickers + per-event ids). Set it when two views on one page can render the same events/markers — without it their ids collide."
 
   attr :events, :list, default: []
   attr :day_markers, :list, default: []
@@ -290,7 +290,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                 <% @respect_hours and not PhoenixLiveCalendar.Event.all_day?(event) -> %>
                   <% {gl, gw} = bar_geometry(event, true, true) %>
                   <div
-                    id={"cal-event-#{event.id}-#{Date.to_iso8601(day)}"}
+                    id={"cal-event-#{event.id}-#{instance_suffix(@id, Date.to_iso8601(day))}"}
                     class={[
                       "cal-event cal-event-timed h-3.5 mt-px text-[0.6rem] leading-tight font-medium truncate cursor-pointer px-1 rounded flex items-center",
                       event_bar_colors(event),
@@ -309,7 +309,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                   <div class="mx-1 mt-px">
                     <EventItem.event_item
                       event={event}
-                      id_suffix={Date.to_iso8601(day)}
+                      id_suffix={instance_suffix(@id, Date.to_iso8601(day))}
                       on_click={@on_event_click}
                       compact={true}
                       time_format={@time_format}
@@ -653,6 +653,9 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   end
 
   # -- Private helpers --
+
+  defp instance_suffix(nil, key), do: key
+  defp instance_suffix(id, key), do: "#{id}-#{key}"
 
   # A marker's own `color` owns the cell background: it replaces the
   # weekend/out-of-month tint AND the type-based marker tint (stacking two

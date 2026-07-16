@@ -14,6 +14,7 @@ defmodule PhoenixLiveCalendar.Views.DayView do
   `date` instead of a `dates` list.
   """
   attr :date, Date, required: true
+  attr :id, :string, default: nil
   attr :events, :list, default: []
   attr :selected_date, Date, default: nil
   attr :today, Date, default: nil
@@ -43,6 +44,7 @@ defmodule PhoenixLiveCalendar.Views.DayView do
 
     ~H"""
     <WeekGrid.week_grid
+      id={@id}
       dates={@dates}
       events={@events}
       selected_date={@selected_date}

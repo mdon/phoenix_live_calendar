@@ -46,6 +46,12 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   - `time_label` — Custom time gutter label
   """
   attr :dates, :list, required: true
+
+  attr :id, :string,
+    default: nil,
+    doc:
+      "Optional prefix for generated event DOM ids. Set it when two views on one page can render the SAME events — without it their per-event ids collide."
+
   attr :events, :list, default: []
   attr :selected_date, Date, default: nil
   attr :today, Date, default: nil
@@ -271,7 +277,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 <% else %>
                   <EventItem.event_item
                     event={event}
-                    id_suffix={Date.to_iso8601(date)}
+                    id_suffix={instance_suffix(@id, Date.to_iso8601(date))}
                     on_click={@on_event_click}
                     time_format={@time_format}
                     detail={@event_detail}
@@ -297,6 +303,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   end
 
   # -- Private helpers --
+
+  # Per-instance event-id suffix: two views rendering the same events on one
+  # page need distinct DOM ids (same rule as the month grid's ticker ids).
+  defp instance_suffix(nil, key), do: key
+  defp instance_suffix(id, key), do: "#{id}-#{key}"
 
   attr :date, Date, required: true
   attr :today, Date, default: nil

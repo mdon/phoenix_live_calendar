@@ -417,6 +417,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
 
     ~H"""
     <WeekGrid.week_grid
+      id={@id && "#{@id}-week"}
       dates={@dates}
       events={@events}
       selected_date={@selected_date}
@@ -447,6 +448,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp render_view(%{view: :day} = assigns) do
     ~H"""
     <DayView.day_view
+      id={@id && "#{@id}-day"}
       date={@date}
       events={@events}
       selected_date={@selected_date}
@@ -476,6 +478,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp render_view(%{view: {:n_day, _}} = assigns) do
     ~H"""
     <NDayView.n_day_view
+      id={@id && "#{@id}-nday"}
       date={@date}
       days={@n_days}
       events={@events}
@@ -541,6 +544,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp render_view(%{view: :timeline} = assigns) do
     ~H"""
     <Timeline.timeline
+      id={@id && "#{@id}-timeline"}
       date={@date}
       resources={@resources}
       events={@events}
@@ -573,6 +577,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   defp render_view(%{view: :resource} = assigns) do
     ~H"""
     <ResourceView.resource_view
+      id={@id && "#{@id}-resource"}
       date={@date}
       resources={@resources}
       events={@events}

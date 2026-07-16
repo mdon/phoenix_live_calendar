@@ -452,6 +452,18 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert html =~ "cal-day-holiday"
     end
 
+    test "event DOM ids are scoped by the component id per view" do
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~U[2026-06-15 10:00:00Z],
+        end: ~U[2026-06-15 11:00:00Z],
+        title: "Meeting"
+      }
+
+      # Two components (or two views) sharing events must not collide.
+      assert render_html(:week, %{events: [event]}) =~ "cal-event-1-cal-week-"
+    end
+
     test "event_detail: false threads through to the week grid" do
       event = %PhoenixLiveCalendar.Event{
         id: "1",

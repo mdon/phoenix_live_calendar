@@ -21,6 +21,7 @@ defmodule PhoenixLiveCalendar.Views.NDayView do
   - All other attributes are passed through to `WeekGrid.week_grid/1`
   """
   attr :date, Date, required: true
+  attr :id, :string, default: nil
   attr :days, :integer, required: true
   attr :events, :list, default: []
   attr :selected_date, Date, default: nil
@@ -52,6 +53,7 @@ defmodule PhoenixLiveCalendar.Views.NDayView do
 
     ~H"""
     <WeekGrid.week_grid
+      id={@id}
       dates={@dates}
       events={@events}
       selected_date={@selected_date}

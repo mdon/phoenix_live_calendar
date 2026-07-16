@@ -275,4 +275,25 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       refute html =~ "repeat(7, 1fr)"
     end
   end
+
+  describe "instance-scoped event ids" do
+    test "the id attr prefixes event DOM ids so two views sharing events can't collide" do
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-08 10:00:00Z],
+          end: ~U[2026-04-08 11:00:00Z],
+          title: "Meeting"
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-08]], events: events, id_a: "top", id_b: "bottom"}
+
+      html_a = render(~H"<.week_grid id={@id_a} dates={@dates} events={@events} />")
+      html_b = render(~H"<.week_grid id={@id_b} dates={@dates} events={@events} />")
+
+      assert html_a =~ ~s(id="cal-event-1-top-2026-04-08")
+      assert html_b =~ ~s(id="cal-event-1-bottom-2026-04-08")
+    end
+  end
 end

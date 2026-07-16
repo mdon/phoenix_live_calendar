@@ -481,4 +481,27 @@ defmodule PhoenixLiveCalendar.Views.TimelineTest do
       refute html =~ "08:00"
     end
   end
+
+  describe "instance-scoped event ids" do
+    test "the id attr prefixes event DOM ids" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-01 10:00:00Z],
+          end: ~U[2026-04-01 11:00:00Z],
+          title: "Meeting",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events, tl_id: "fitted"}
+
+      html =
+        render(~H"<.timeline id={@tl_id} date={@date} resources={@resources} events={@events} />")
+
+      assert html =~ ~s(id="cal-event-1-fitted-r1")
+    end
+  end
 end

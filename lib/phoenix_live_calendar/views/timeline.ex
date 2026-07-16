@@ -69,6 +69,12 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   All-day events covering `date` render as full-width bars.
   """
   attr :date, Date, required: true
+
+  attr :id, :string,
+    default: nil,
+    doc:
+      "Optional prefix for generated event DOM ids. Set it when two views on one page can render the SAME events — without it their per-event ids collide."
+
   attr :resources, :list, required: true
   attr :events, :list, default: []
   attr :min_time, Time, default: ~T[00:00:00]
@@ -226,7 +232,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
                 <% else %>
                   <EventItem.event_item
                     event={event}
-                    id_suffix={resource.id}
+                    id_suffix={instance_suffix(@id, resource.id)}
                     on_click={@on_event_click}
                     default_color="bg-primary/80"
                     class="h-full text-xs rounded px-1"
@@ -240,6 +246,9 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     </div>
     """
   end
+
+  defp instance_suffix(nil, key), do: key
+  defp instance_suffix(id, key), do: "#{id}-#{key}"
 
   defp timeline_event_style(event, date, min_time, max_time, clamp) do
     {start_time, end_time} = event_window(event, date, clamp)
