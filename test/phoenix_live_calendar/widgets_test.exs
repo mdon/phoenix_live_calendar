@@ -106,6 +106,28 @@ defmodule PhoenixLiveCalendar.WidgetsTest do
     end
   end
 
+  describe "next_events interactivity" do
+    test "rows are inert by default and clickable with a handler" do
+      now = ~U[2026-04-01 12:00:00Z]
+
+      events = [
+        %Event{id: "e1", start: DateTime.add(now, 2, :hour), title: "Soon"}
+      ]
+
+      assigns = %{events: events, now: now}
+
+      inert = render(~H"<.next_events events={@events} now={@now} />")
+      doc = Floki.parse_document!(inert)
+      assert Floki.find(doc, "button[disabled]") != []
+      assert Floki.find(doc, "button[phx-click]") == []
+
+      wired = render(~H|<.next_events events={@events} now={@now} on_event_click="pick" />|)
+      doc = Floki.parse_document!(wired)
+      [btn] = Floki.find(doc, "button[phx-click]")
+      assert Floki.attribute([btn], "phx-value-event-id") == ["e1"]
+    end
+  end
+
   describe "week_strip/1" do
     test "renders seven day cells with dots and a today pill" do
       today = ~D[2026-04-01]
@@ -229,6 +251,35 @@ defmodule PhoenixLiveCalendar.WidgetsTest do
         render(~H"<.activity_month data={@data} date={@date} show_day_initials={false} />")
 
       refute html =~ "cal-activity-day-initial"
+    end
+  end
+
+  describe "week_start variants" do
+    test "activity_month orders day initials from the configured week start" do
+      assigns = %{data: %{~D[2026-04-10] => 5}, date: ~D[2026-04-15]}
+
+      sunday_first =
+        render(~H"<.activity_month data={@data} date={@date} week_start={7} />")
+
+      doc = Floki.parse_document!(sunday_first)
+
+      initials =
+        doc
+        |> Floki.find(".cal-activity-day-initial")
+        |> Enum.map(&(&1 |> Floki.text() |> String.trim()))
+
+      assert initials == ["S", "M", "T", "W", "T", "F", "S"]
+    end
+
+    test "week_strip anchors its week to the configured start" do
+      # 2026-04-15 is a Wednesday; a Sunday-start week begins Apr 12
+      assigns = %{date: ~D[2026-04-15]}
+
+      html = render(~H"<.week_strip date={@date} week_start={7} />")
+
+      doc = Floki.parse_document!(html)
+      [first_btn | _] = Floki.find(doc, ".cal-week-strip-day")
+      assert Floki.attribute([first_btn], "phx-value-date") == ["2026-04-12"]
     end
   end
 

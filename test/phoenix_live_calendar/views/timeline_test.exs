@@ -274,7 +274,12 @@ defmodule PhoenixLiveCalendar.Views.TimelineTest do
 
       html = render(~H"<.timeline date={@date} resources={@resources} />")
 
-      assert html =~ ~r/cal-timeline-header[^"]*sticky top-0[^"]*z-30/
+      doc = Floki.parse_document!(html)
+      [header_class] = doc |> Floki.find(".cal-timeline-header") |> Floki.attribute("class")
+
+      assert header_class =~ "sticky"
+      assert header_class =~ "top-0"
+      assert header_class =~ "z-30"
     end
   end
 
@@ -589,6 +594,84 @@ defmodule PhoenixLiveCalendar.Views.TimelineTest do
       # placed before the ~98% bar, not spilling past 100%
       [_, at] = Regex.run(~r/inset-inline-start: ([\d.]+)%/, style)
       assert String.to_float(at) < 95.0
+    end
+
+    test "label_position={:inside} forces the label into a narrow bar" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: [narrow_session()]}
+
+      html =
+        render(
+          ~H"<.timeline date={@date} resources={@resources} events={@events} label_position={:inside} />"
+        )
+
+      assert html =~ "cal-event-content"
+      refute html =~ "cal-timeline-bar-label"
+    end
+
+    test "label_position={:outside} forces the label beside a wide bar" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-01 09:00:00Z],
+          end: ~U[2026-04-01 12:00:00Z],
+          title: "Long morning session",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events}
+
+      html =
+        render(
+          ~H"<.timeline date={@date} resources={@resources} events={@events} label_position={:outside} />"
+        )
+
+      refute html =~ "cal-event-content"
+      assert html =~ "cal-timeline-bar-label"
+    end
+
+    test "an outside label blocked on BOTH sides suppresses itself" do
+      # 1-hour window: the bar starts at the track edge (before-gap < 0) and
+      # a wide neighbour occupies the rest (after-gap blocked) -> tooltip only.
+      resources = [%Resource{id: "r1", title: "Room A"}]
+
+      events = [
+        %Event{
+          id: "tiny",
+          start: ~U[2026-04-01 10:00:00Z],
+          end: ~U[2026-04-01 10:03:00Z],
+          title: "Chapter twelve",
+          resource_id: "r1"
+        },
+        %Event{
+          id: "wide",
+          start: ~U[2026-04-01 10:04:00Z],
+          end: ~U[2026-04-01 10:57:00Z],
+          title: "Big block",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events}
+
+      html =
+        render(~H"<.timeline
+  date={@date}
+  resources={@resources}
+  events={@events}
+  min_time={~T[10:00:00]}
+  max_time={~T[11:00:00]}
+/>")
+
+      doc = Floki.parse_document!(html)
+      labels = doc |> Floki.find(".cal-timeline-bar-label") |> Enum.map(&Floki.text/1)
+
+      refute Enum.any?(labels, &(&1 =~ "Chapter twelve"))
+      [tooltip] = doc |> Floki.find(~s([id^="cal-event-tiny"])) |> Floki.attribute("title")
+      assert tooltip == "Chapter twelve"
     end
 
     test "label_position={:none} renders tooltip-only bars" do

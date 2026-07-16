@@ -777,6 +777,69 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert html =~ "custom-day-cell"
     end
 
+    test "the remaining view slots forward too" do
+      resources = [%PhoenixLiveCalendar.Resource{id: "r1", title: "Room A"}]
+
+      time_label = %{
+        __slot__: :time_label,
+        inner_block: fn _i, time ->
+          assigns = %{time: time}
+          ~H|<em class="custom-time">{@time.hour}h</em>|
+        end
+      }
+
+      resource_label = %{
+        __slot__: :resource_label,
+        inner_block: fn _i, r ->
+          assigns = %{r: r}
+          ~H|<em class="custom-rlabel">{@r.title}*</em>|
+        end
+      }
+
+      resource_header = %{
+        __slot__: :resource_header,
+        inner_block: fn _i, r ->
+          assigns = %{r: r}
+          ~H|<em class="custom-rheader">{@r.title}!</em>|
+        end
+      }
+
+      day_header = %{
+        __slot__: :day_header,
+        inner_block: fn _i, %{date: date} ->
+          assigns = %{date: date}
+          ~H|<em class="custom-dheader">{@date.day}</em>|
+        end
+      }
+
+      no_events = %{
+        __slot__: :no_events,
+        inner_block: fn _i, _ ->
+          assigns = %{}
+          ~H|<em class="custom-empty">Nothing!</em>|
+        end
+      }
+
+      assert render_html(:week, %{time_label: [time_label]}) =~ "custom-time"
+
+      assert render_html(:timeline, %{resources: resources, resource_label: [resource_label]}) =~
+               "custom-rlabel"
+
+      assert render_html(:resource, %{resources: resources, resource_header: [resource_header]}) =~
+               "custom-rheader"
+
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~U[2026-06-16 10:00:00Z],
+        title: "Agenda item"
+      }
+
+      assert render_html(:agenda, %{events: [event], day_header: [day_header]}) =~
+               "custom-dheader"
+
+      assert render_html(:agenda, %{no_events: [no_events]}) =~ "custom-empty"
+    end
+
     test "no slots passed renders the default markup unchanged" do
       event = %PhoenixLiveCalendar.Event{
         id: "1",

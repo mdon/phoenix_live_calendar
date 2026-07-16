@@ -43,6 +43,22 @@ defmodule PhoenixLiveCalendar.ThemeTest do
     end
   end
 
+  describe "semantic_tokens/0 and bg/1" do
+    test "lists the eight daisyUI semantics" do
+      tokens = Theme.semantic_tokens()
+
+      assert :primary in tokens and :error in tokens
+      assert length(tokens) == 8
+    end
+
+    test "bg/1 returns only the background half" do
+      assert Theme.bg(:accent) == "bg-accent"
+      assert Theme.bg("bg-x") == "bg-x"
+      assert Theme.bg(nil) == nil
+      assert Theme.bg(:bogus) == nil
+    end
+  end
+
   describe "event_colors/2" do
     test "token pair wins, explicit text_color beats the pair" do
       event = %Event{id: 1, start: ~D[2026-04-01], color: :accent}
@@ -57,7 +73,7 @@ defmodule PhoenixLiveCalendar.ThemeTest do
       {bg, text} = Theme.event_colors(event, "bg-primary/80")
 
       assert bg == "bg-primary/80"
-      assert is_binary(text)
+      assert text == "text-primary-content"
     end
 
     test "an unknown atom token falls back to the default bg" do

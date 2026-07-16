@@ -37,7 +37,7 @@ defmodule PhoenixLiveCalendar.Components.EventItemTest do
       event = %Event{id: "1", start: ~U[2026-04-01 10:00:00Z], color: "bg-warning"}
       assigns = %{event: event}
 
-      html = render(~H"<.event_item event={@event} default_color=\"bg-primary/80\" />")
+      html = render(~H|<.event_item event={@event} default_color="bg-primary/80" />|)
 
       assert html =~ "bg-warning"
       assert html =~ "text-warning-content"
@@ -53,7 +53,7 @@ defmodule PhoenixLiveCalendar.Components.EventItemTest do
       assert html =~ ~s(id="cal-event-ev1")
 
       # with a suffix (per-date/per-resource loops) the id is unique per cell
-      html = render(~H"<.event_item event={@event} id_suffix=\"2026-04-01\" />")
+      html = render(~H|<.event_item event={@event} id_suffix="2026-04-01" />|)
       assert html =~ ~s(id="cal-event-ev1-2026-04-01")
     end
 

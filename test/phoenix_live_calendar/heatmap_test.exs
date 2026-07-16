@@ -185,5 +185,27 @@ defmodule PhoenixLiveCalendar.HeatmapTest do
 
       assert Floki.find(doc, ".cal-marker-label") == []
     end
+
+    test "style: :dot renders a corner intensity dot instead of a cell tint" do
+      markers = Heatmap.markers(%{~D[2026-04-10] => 90}, max: 100, style: :dot)
+      assigns = %{date: ~D[2026-04-01], markers: markers}
+
+      html =
+        rendered_to_string(
+          ~H"<PhoenixLiveCalendar.Views.MonthGrid.month_grid date={@date} day_markers={@markers} />"
+        )
+
+      doc = Floki.parse_document!(html)
+
+      # no whole-cell tint...
+      [cell_class] = doc |> Floki.find("[data-date='2026-04-10']") |> Floki.attribute("class")
+      refute cell_class =~ "cal-day-marked"
+
+      # ...just the dot, carrying the intensity class and the label tooltip
+      [dot] = Floki.find(doc, "[data-date='2026-04-10'] .cal-heat-dot")
+      [dot_class] = Floki.attribute([dot], "class")
+      assert dot_class =~ "bg-success"
+      assert Floki.attribute([dot], "title") == ["90"]
+    end
   end
 end
