@@ -269,8 +269,9 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
               <% day_layout = Map.get(@overlap_layouts, date, %{}) %>
               <div
                 :for={event <- Map.get(@events_by_date, date, [])}
+                :if={day_window(event, date, @min_time, @max_time)}
                 class="absolute pointer-events-auto z-10"
-                style={event_position_style_with_overlap(event, day_layout, @min_time, @max_time)}
+                style={event_position_style_with_overlap(event, date, day_layout, @min_time, @max_time)}
               >
                 <%= if @event != [] do %>
                   {render_slot(@event, event)}
@@ -382,9 +383,33 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     [bg, text]
   end
 
-  defp event_position_style_with_overlap(event, layout_map, min_time, max_time) do
-    start_time = TimeSlots.to_time(event.start)
-    end_time = TimeSlots.to_time(Event.effective_end(event))
+  # The times an event's block occupies on ONE day column, clipped to the
+  # visible [min_time, max_time] window — or nil when nothing of it is
+  # visible that day. A midnight-crossing 21:30 -> 01:00 event used to
+  # position by raw time-of-day on BOTH its days: negative height, floored
+  # to a phantom sliver at 21:30 on each column (same bug class the
+  # timeline's clamp fixed).
+  defp day_window(event, date, min_time, max_time) do
+    seg_start =
+      if Date.compare(Event.first_date(event), date) == :lt,
+        do: ~T[00:00:00],
+        else: TimeSlots.to_time(event.start)
+
+    event_end = Event.effective_end(event)
+
+    seg_end =
+      if Date.compare(Event.last_date(event), date) == :gt,
+        do: ~T[23:59:59],
+        else: TimeSlots.to_time(event_end)
+
+    seg_start = if Time.compare(seg_start, min_time) == :lt, do: min_time, else: seg_start
+    seg_end = if Time.compare(seg_end, max_time) == :gt, do: max_time, else: seg_end
+
+    if Time.compare(seg_start, seg_end) == :lt, do: {seg_start, seg_end}
+  end
+
+  defp event_position_style_with_overlap(event, date, layout_map, min_time, max_time) do
+    {start_time, end_time} = day_window(event, date, min_time, max_time)
 
     top = TimeSlots.time_to_percentage(start_time, min_time: min_time, max_time: max_time)
     bottom = TimeSlots.time_to_percentage(end_time, min_time: min_time, max_time: max_time)

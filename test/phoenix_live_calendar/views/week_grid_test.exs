@@ -296,4 +296,87 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       assert html_b =~ ~s(id="cal-event-1-bottom-2026-04-08")
     end
   end
+
+  describe "per-day window clamping" do
+    test "a midnight-crossing event renders its real segment on each day" do
+      # 21:30 -> 01:00 with a full-day window: Saturday shows 21:30..24:00,
+      # Sunday shows 00:00..01:00 at the top — not a phantom sliver at 21:30
+      # on both days (the raw time-of-day bug).
+      events = [
+        %Event{
+          id: "binge",
+          start: ~U[2026-04-11 21:30:00Z],
+          end: ~U[2026-04-12 01:00:00Z],
+          title: "Late binge"
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-11], ~D[2026-04-12]], events: events}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+
+      blocks =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-date] .cal-event")
+
+      assert length(blocks) == 2
+      # Saturday segment starts at 21:30 of a 24h axis (~89.58%)
+      assert html =~ "top: 89.58"
+      # Sunday segment starts at the very top
+      assert html =~ "top: 0.0%"
+    end
+
+    test "the off-window part of a midnight-crosser is dropped, not floored" do
+      # Window 06:00-22:00: Saturday shows 21:30..22:00; Sunday's 00:00-01:00
+      # portion is entirely before the window -> no block at all.
+      events = [
+        %Event{
+          id: "binge",
+          start: ~U[2026-04-11 21:30:00Z],
+          end: ~U[2026-04-12 01:00:00Z],
+          title: "Late binge"
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-11], ~D[2026-04-12]], events: events}
+
+      html =
+        render(~H"<.week_grid
+  dates={@dates}
+  events={@events}
+  min_time={~T[06:00:00]}
+  max_time={~T[22:00:00]}
+/>")
+
+      doc = Floki.parse_document!(html)
+      sat = Floki.find(doc, "[data-date='2026-04-11'] .cal-event")
+      sun = Floki.find(doc, "[data-date='2026-04-12'] .cal-event")
+
+      assert length(sat) == 1
+      assert sun == []
+    end
+
+    test "an event entirely outside the visible window renders nothing" do
+      events = [
+        %Event{
+          id: "early",
+          start: ~U[2026-04-11 05:00:00Z],
+          end: ~U[2026-04-11 05:30:00Z],
+          title: "Early jog"
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-11]], events: events}
+
+      html =
+        render(~H"<.week_grid
+  dates={@dates}
+  events={@events}
+  min_time={~T[06:00:00]}
+  max_time={~T[22:00:00]}
+/>")
+
+      refute html =~ "Early jog"
+    end
+  end
 end
