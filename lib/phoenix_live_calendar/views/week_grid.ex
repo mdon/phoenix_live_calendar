@@ -26,6 +26,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   - `slot_height` — CSS height per slot (default: "3rem")
   - `show_now_indicator` — Show current time line (default: true)
   - `show_all_day_row` — Show all-day event row (default: true)
+  - `day_markers` — `PhoenixLiveCalendar.DayMarker` structs: label chips
+    under the day headers, column background tints (custom marker colors
+    win over the type tints and the today tint)
+  - `event_detail` — Stacked event blocks: title, start–end range, location
+    (default: true; blocks clip, so short events show just the title)
   - `business_hours` — List of `PhoenixLiveCalendar.Availability` for highlighting
   - `on_date_click` — Handler for date header clicks
   - `on_time_click` — Handler for time slot clicks
@@ -57,6 +62,8 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       "Current wall-clock time for the now indicator (default: `Time.utc_now()`). Pass the viewer's local time when your events/`today` are in the viewer's frame."
 
   attr :business_hours, :list, default: []
+  attr :day_markers, :list, default: []
+  attr :event_detail, :boolean, default: true
   attr :on_date_click, :any, default: nil
   attr :on_time_click, :any, default: nil
   attr :on_event_click, :any, default: nil
@@ -89,6 +96,9 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     now = assigns.now || Time.utc_now()
     col_count = length(assigns.dates)
 
+    markers_by_date =
+      PhoenixLiveCalendar.DayMarker.group_by_date(assigns.day_markers, assigns.dates)
+
     # Compute overlap layout per day for side-by-side positioning
     overlap_layouts =
       Map.new(assigns.dates, fn date ->
@@ -106,17 +116,18 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       |> assign(:overlap_layouts, overlap_layouts)
       |> assign(:now, now)
       |> assign(:col_count, col_count)
+      |> assign(:markers_by_date, markers_by_date)
 
     ~H"""
     <div class={["cal-week-grid flex flex-col", @class]} dir={to_string(@dir)}>
       <%!-- Day headers --%>
       <div class="cal-week-header flex border-b border-base-200">
-        <div class="w-16 flex-shrink-0"></div>
-        <div class="flex-1 grid" style={"grid-template-columns: repeat(#{@col_count}, 1fr)"}>
+        <div class="w-12 sm:w-16 flex-shrink-0"></div>
+        <div class="flex-1 grid" style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}>
           <div
             :for={date <- @dates}
             class={[
-              "cal-day-column-header text-center py-2 border-l border-base-200",
+              "cal-day-column-header min-w-0 text-center py-1.5 sm:py-2 border-l border-base-200",
               date == @today && "bg-primary/5"
             ]}
           >
@@ -127,27 +138,28 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
               phx-click={@on_date_click}
               phx-value-date={Date.to_iso8601(date)}
             >
-              <span class="text-xs text-base-content/60">
-                {I18n.day_name_short(Date.day_of_week(date), @translations)}
-              </span>
-              <br />
-              <span class={[
-                "text-lg font-medium",
-                date == @today && "text-primary font-bold"
-              ]}>
-                {date.day}
-              </span>
+              <.header_day_label date={date} today={@today} translations={@translations} />
             </button>
             <div :if={!@on_date_click}>
-              <span class="text-xs text-base-content/60">
-                {I18n.day_name_short(Date.day_of_week(date), @translations)}
-              </span>
-              <br />
-              <span class={[
-                "text-lg font-medium",
-                date == @today && "text-primary font-bold"
-              ]}>
-                {date.day}
+              <.header_day_label date={date} today={@today} translations={@translations} />
+            </div>
+            <%!-- Day marker chips: the zoomed views have header room for them --%>
+            <div
+              :if={PhoenixLiveCalendar.DayMarker.labeled(Map.get(@markers_by_date, date, [])) != []}
+              class="flex flex-wrap justify-center gap-0.5 px-0.5 pb-0.5"
+            >
+              <span
+                :for={
+                  marker <- PhoenixLiveCalendar.DayMarker.labeled(Map.get(@markers_by_date, date, []))
+                }
+                class={[
+                  "cal-marker-label max-w-full truncate text-[0.55rem] leading-none px-1 py-px rounded font-medium",
+                  PhoenixLiveCalendar.DayMarker.chip_class(marker)
+                ]}
+                title={marker.description || marker.label}
+              >
+                <span :if={marker.icon} class="mr-0.5">{marker.icon}</span>
+                {marker.label}
               </span>
             </div>
           </div>
@@ -157,45 +169,43 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       <%!-- All-day row with spanning bars --%>
       <div :if={@show_all_day_row} class="cal-all-day-row border-b border-base-200">
         <div class="flex">
-          <div class="w-16 flex-shrink-0 text-xs text-base-content/50 text-center py-1">
+          <div class="w-12 sm:w-16 flex-shrink-0 text-xs text-base-content/50 text-center py-1">
             {I18n.label(:all_day, @translations)}
           </div>
           <div class="flex-1 relative">
             <%!-- Grid background for cell borders --%>
             <div
               class="grid absolute inset-0"
-              style={"grid-template-columns: repeat(#{@col_count}, 1fr)"}
+              style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}
             >
               <div :for={_date <- @dates} class="border-l border-base-200"></div>
             </div>
             <%!-- Spanning event bars --%>
             <div
               class="grid relative min-h-6 py-0.5"
-              style={"grid-template-columns: repeat(#{@col_count}, 1fr)"}
+              style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}
             >
               <% week_start = hd(@dates)
               week_end = Date.add(List.last(@dates), 1)
-              # Multi-day all-day events as spanning bars
-              multi_allday =
-                Enum.filter(@all_day_events, fn e ->
-                  Event.multi_day?(e) and Event.overlaps_range?(e, week_start, week_end)
-                end)
 
-              # Single-day all-day events
-              single_allday =
-                Enum.reject(@all_day_events, &Event.multi_day?/1)
+              # Explicit lane per bar: grid auto-placement's sparse cursor
+              # never reuses an earlier row, so overlapping bars stacked in
+              # arrival order waste rows and can shuffle on update. Greedy
+              # first-free-lane packing (sorted by start, longer first) is
+              # deterministic and dense — the month grid's slot rule.
+              lane_bars =
+                @all_day_events
                 |> Enum.filter(fn e -> Event.overlaps_range?(e, week_start, week_end) end)
-
-              all_bars = multi_allday ++ single_allday %>
+                |> assign_allday_lanes() %>
               <div
-                :for={event <- all_bars}
+                :for={{event, lane} <- lane_bars}
                 class={[
                   "cal-spanning-bar rounded-sm px-1 py-0.5 text-xs font-medium truncate cursor-pointer mx-px mb-px",
                   event_bar_colors(event),
                   event.status == :cancelled && "opacity-50 line-through",
                   event.class
                 ]}
-                style={allday_bar_style(event, week_start, week_end, @col_count)}
+                style={allday_bar_style(event, week_start, week_end, @col_count, lane)}
                 phx-click={@on_event_click}
                 phx-value-event-id={event.id}
                 title={event.title}
@@ -220,13 +230,16 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
           </:time_label>
         </TimeGutter.time_gutter>
 
-        <div class="flex-1 grid relative" style={"grid-template-columns: repeat(#{@col_count}, 1fr)"}>
+        <div
+          class="flex-1 grid relative"
+          style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}
+        >
           <%!-- Day columns --%>
           <div
             :for={date <- @dates}
             class={[
-              "cal-day-column border-l border-base-200 relative",
-              date == @today && "bg-primary/5"
+              "cal-day-column min-w-0 border-l border-base-200 relative",
+              day_column_classes(Map.get(@markers_by_date, date, []), date == @today)
             ]}
             data-date={Date.to_iso8601(date)}
           >
@@ -261,6 +274,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                     id_suffix={Date.to_iso8601(date)}
                     on_click={@on_event_click}
                     time_format={@time_format}
+                    detail={@event_detail}
                     default_color="bg-primary/80"
                     class="h-full text-xs border-l-2 border-primary"
                   />
@@ -283,6 +297,73 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   end
 
   # -- Private helpers --
+
+  attr :date, Date, required: true
+  attr :today, Date, default: nil
+  attr :translations, :map, default: %{}
+
+  # Narrow single-letter day names on phones, short names from `sm` up,
+  # full name for screen readers — the month header's responsive pattern.
+  defp header_day_label(assigns) do
+    ~H"""
+    <span
+      class="text-xs text-base-content/60"
+      aria-label={I18n.day_name(Date.day_of_week(@date), @translations)}
+    >
+      <span class="sm:hidden">{I18n.day_name_narrow(Date.day_of_week(@date), @translations)}</span>
+      <span class="hidden sm:inline">
+        {I18n.day_name_short(Date.day_of_week(@date), @translations)}
+      </span>
+    </span>
+    <br />
+    <span class={[
+      "text-base sm:text-lg font-medium",
+      @date == @today && "text-primary font-bold"
+    ]}>
+      {@date.day}
+    </span>
+    """
+  end
+
+  # Greedy first-free-lane packing over INCLUSIVE occupied dates (the same
+  # overlap rule as the month grid's slots). Returns [{event, lane}].
+  defp assign_allday_lanes(bars) do
+    bars
+    |> Enum.sort_by(fn e ->
+      {Date.to_gregorian_days(Event.first_date(e)), -Event.duration_seconds(e)}
+    end)
+    |> Enum.reduce([], fn event, placed ->
+      taken =
+        placed
+        |> Enum.filter(fn {other, _lane} -> allday_dates_overlap?(event, other) end)
+        |> MapSet.new(fn {_other, lane} -> lane end)
+
+      lane = Enum.find(Stream.iterate(0, &(&1 + 1)), &(not MapSet.member?(taken, &1)))
+      [{event, lane} | placed]
+    end)
+    |> Enum.reverse()
+  end
+
+  defp allday_dates_overlap?(a, b) do
+    Date.compare(Event.first_date(a), Event.last_date(b)) != :gt and
+      Date.compare(Event.last_date(a), Event.first_date(b)) != :lt
+  end
+
+  # Column background precedence: custom marker color (heatmap) > type tint >
+  # today tint — stacking two bg-* utilities resolves by stylesheet order,
+  # so exactly one is applied. The semantic hook class is always kept.
+  defp day_column_classes(markers, today?) do
+    custom = PhoenixLiveCalendar.DayMarker.custom_color(markers)
+    tint = PhoenixLiveCalendar.DayMarker.type_tint(markers)
+    semantic = PhoenixLiveCalendar.DayMarker.semantic_class(markers)
+
+    cond do
+      custom -> ["cal-day-marked", semantic, custom]
+      tint -> [semantic, tint]
+      today? -> "bg-primary/5"
+      true -> nil
+    end
+  end
 
   # One merge rule for bar colors (see PhoenixLiveCalendar.Theme.event_colors/2).
   defp event_bar_colors(event) do
@@ -318,7 +399,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     unless is_business, do: "bg-base-200/30"
   end
 
-  defp allday_bar_style(event, week_start, week_end, col_count) do
+  defp allday_bar_style(event, week_start, week_end, col_count, lane) do
     event_start = to_date(event.start)
     event_end = to_date(Event.effective_end(event))
 
@@ -329,7 +410,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     col_span = max(Date.diff(vis_end, vis_start), 1)
     col_span = min(col_span, col_count - col_start + 1)
 
-    "grid-column: #{col_start} / span #{col_span}"
+    "grid-column: #{col_start} / span #{col_span}; grid-row: #{lane + 1}"
   end
 
   defp to_date(%Date{} = d), do: d

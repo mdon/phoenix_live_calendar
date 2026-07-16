@@ -13,7 +13,7 @@ defmodule PhoenixLiveCalendar.Views.NDayViewTest do
 
       html = render(~H"<.n_day_view date={@date} days={@days} />")
 
-      assert html =~ "grid-template-columns: repeat(4, 1fr)"
+      assert html =~ "grid-template-columns: repeat(4, minmax(0, 1fr))"
     end
 
     test "renders 3-day view" do

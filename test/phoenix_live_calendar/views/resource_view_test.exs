@@ -51,7 +51,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceViewTest do
 
       html = render(~H"<.resource_view date={@date} resources={@resources} />")
 
-      assert html =~ "grid-template-columns: repeat(3, 1fr)"
+      assert html =~ "grid-template-columns: repeat(3, minmax(0, 1fr))"
     end
 
     test "renders events in correct resource column" do

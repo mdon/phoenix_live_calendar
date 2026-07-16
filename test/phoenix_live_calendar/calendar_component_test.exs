@@ -434,6 +434,37 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     end
   end
 
+  describe "week/day threading" do
+    test "day_markers reach the week grid (chips + column tint)" do
+      markers = [
+        %PhoenixLiveCalendar.DayMarker{
+          id: "xmas",
+          label: "Christmas",
+          start_date: ~D[2026-06-15],
+          type: :holiday,
+          available: false
+        }
+      ]
+
+      html = render_html(:week, %{day_markers: markers})
+
+      assert html =~ "Christmas"
+      assert html =~ "cal-day-holiday"
+    end
+
+    test "event_detail: false threads through to the week grid" do
+      event = %PhoenixLiveCalendar.Event{
+        id: "1",
+        start: ~U[2026-06-15 10:00:00Z],
+        end: ~U[2026-06-15 11:00:00Z],
+        title: "Meeting"
+      }
+
+      assert render_html(:week, %{events: [event]}) =~ "cal-event-detail"
+      refute render_html(:week, %{events: [event], event_detail: false}) =~ "cal-event-detail"
+    end
+  end
+
   describe "events_mode windowing" do
     test ":window keeps events straddling the visible range boundary" do
       # Spills into the June grid from May — trimming it would visibly drop

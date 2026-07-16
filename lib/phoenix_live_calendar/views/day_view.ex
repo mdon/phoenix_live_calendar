@@ -25,6 +25,8 @@ defmodule PhoenixLiveCalendar.Views.DayView do
   attr :now, Time, default: nil
   attr :show_all_day_row, :boolean, default: true
   attr :business_hours, :list, default: []
+  attr :day_markers, :list, default: []
+  attr :event_detail, :boolean, default: true
   attr :on_date_click, :any, default: nil
   attr :on_time_click, :any, default: nil
   attr :on_event_click, :any, default: nil
@@ -53,6 +55,8 @@ defmodule PhoenixLiveCalendar.Views.DayView do
       now={@now}
       show_all_day_row={@show_all_day_row}
       business_hours={@business_hours}
+      day_markers={@day_markers}
+      event_detail={@event_detail}
       on_date_click={@on_date_click}
       on_time_click={@on_time_click}
       on_event_click={@on_event_click}

@@ -170,4 +170,68 @@ defmodule PhoenixLiveCalendar.DayMarker do
       acc
     end
   end
+
+  # -- Shared styling helpers (used by the month, week, day and year views) --
+
+  @doc """
+  The first custom cell `color` among a day's markers, or `nil`.
+  """
+  @spec custom_color([t()]) :: String.t() | nil
+  def custom_color(markers), do: Enum.find_value(markers, & &1.color)
+
+  @doc """
+  The semantic hook class for a day's markers (`cal-day-holiday` /
+  `cal-day-closed` / `cal-day-notice` / `cal-day-season`), or `nil`.
+  Kept on the cell even when a custom color replaces the tint, so consumer
+  CSS/tests keying off it keep matching.
+  """
+  @spec semantic_class([t()]) :: String.t() | nil
+  def semantic_class(markers) do
+    cond do
+      Enum.any?(markers, &(not &1.available and &1.type == :holiday)) -> "cal-day-holiday"
+      Enum.any?(markers, &(not &1.available)) -> "cal-day-closed"
+      Enum.any?(markers, &(&1.type == :notice)) -> "cal-day-notice"
+      Enum.any?(markers, &(&1.type == :season)) -> "cal-day-season"
+      true -> nil
+    end
+  end
+
+  @doc """
+  The type-based background tint for a day's markers, or `nil`.
+  """
+  @spec type_tint([t()]) :: String.t() | nil
+  def type_tint(markers) do
+    case semantic_class(markers) do
+      "cal-day-holiday" -> "bg-error/8"
+      "cal-day-closed" -> "bg-error/5"
+      "cal-day-notice" -> "bg-info/5"
+      "cal-day-season" -> "bg-accent/5"
+      nil -> nil
+    end
+  end
+
+  @doc """
+  The classes for a marker's label chip: its own `class`/`text_color` when
+  either is set, else the type-based defaults.
+  """
+  @spec chip_class(t()) :: [String.t() | nil] | String.t()
+  def chip_class(%{class: class, text_color: text_color})
+      when not is_nil(class) or not is_nil(text_color) do
+    [class, text_color]
+  end
+
+  def chip_class(%{type: :holiday}), do: "bg-error/30 text-error-content"
+  def chip_class(%{type: :closure}), do: "bg-warning/30 text-warning-content"
+  def chip_class(%{type: :notice}), do: "bg-info/20 text-info"
+  def chip_class(%{type: :label}), do: "bg-success/20 text-success"
+  def chip_class(%{type: :season}), do: "bg-accent/20 text-accent"
+  def chip_class(_marker), do: "bg-base-200 text-base-content/60"
+
+  @doc """
+  Markers that want a visible label chip (`show_label` and a non-nil label).
+  """
+  @spec labeled([t()]) :: [t()]
+  def labeled(markers) do
+    Enum.filter(markers, &(&1.show_label and &1.label != nil))
+  end
 end

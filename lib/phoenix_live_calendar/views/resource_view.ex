@@ -82,7 +82,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
       <%!-- Resource headers --%>
       <div class="cal-resource-headers flex border-b border-base-200">
         <div class="w-16 flex-shrink-0"></div>
-        <div class="flex-1 grid" style={"grid-template-columns: repeat(#{@col_count}, 1fr)"}>
+        <div class="flex-1 grid" style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}>
           <div
             :for={resource <- @resources}
             class="cal-resource-column-header text-center py-2 border-l border-base-200"
@@ -111,7 +111,10 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
           time_format={@time_format}
         />
 
-        <div class="flex-1 grid relative" style={"grid-template-columns: repeat(#{@col_count}, 1fr)"}>
+        <div
+          class="flex-1 grid relative"
+          style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}
+        >
           <div
             :for={resource <- @resources}
             class="cal-resource-column border-l border-base-200 relative"

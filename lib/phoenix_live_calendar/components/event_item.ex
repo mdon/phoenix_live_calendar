@@ -45,6 +45,16 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   attr :event, PhoenixLiveCalendar.Event, required: true
   attr :on_click, :any, default: nil
   attr :compact, :boolean, default: false
+
+  attr :detail, :boolean,
+    default: false,
+    doc: """
+    Stacked multi-line layout for zoomed-in (week/day) blocks: title, then
+    the start–end time range, then the location. The block clips overflow,
+    so short events gracefully degrade to just the title — no height
+    measurement needed. Ignored when `compact` is set.
+    """
+
   attr :class, :string, default: ""
   attr :time_format, :atom, default: :h24
 
@@ -105,7 +115,12 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
       <%= if @inner_block != [] do %>
         {render_slot(@inner_block, @event)}
       <% else %>
-        <.default_event_content event={@event} compact={@compact} time_format={@time_format} />
+        <.default_event_content
+          event={@event}
+          compact={@compact}
+          detail={@detail and not @compact}
+          time_format={@time_format}
+        />
       <% end %>
     </div>
     """
@@ -113,7 +128,58 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
 
   attr :event, PhoenixLiveCalendar.Event, required: true
   attr :compact, :boolean, default: false
+  attr :detail, :boolean, default: false
   attr :time_format, :atom, default: :h24
+
+  # Detail mode: a stacked layout for the taller week/day blocks — title
+  # first (always visible), then the time RANGE, then the location. The
+  # container clips, so a 30-minute block shows just the title line.
+  defp default_event_content(%{detail: true} = assigns) do
+    ~H"""
+    <div class="cal-event-content cal-event-detail flex flex-col overflow-hidden text-xs h-full">
+      <div class="flex items-center gap-1 min-w-0">
+        <span
+          :if={@event.priority in [:high, :urgent]}
+          class={[
+            "cal-event-priority w-1.5 h-1.5 rounded-full flex-shrink-0",
+            priority_dot_class(@event)
+          ]}
+          aria-hidden="true"
+        >
+        </span>
+        <span
+          :if={@event.badge}
+          class="cal-event-badge text-[0.6rem] font-bold uppercase px-1 rounded bg-base-content/10"
+        >
+          {@event.badge}
+        </span>
+        <span :if={@event.icon} class="cal-event-icon flex-shrink-0" aria-hidden="true">
+          {@event.icon}
+        </span>
+        <span class={[
+          "cal-event-title truncate font-medium",
+          @event.status in [:cancelled, :no_show] && "line-through"
+        ]}>
+          {@event.title || "(No title)"}
+        </span>
+      </div>
+
+      <span
+        :if={not Event.all_day?(@event) and @event.start}
+        class="cal-event-time whitespace-nowrap opacity-90"
+      >
+        {format_event_time(@event.start, @time_format)} – {format_event_time(
+          Event.effective_end(@event),
+          @time_format
+        )}
+      </span>
+
+      <span :if={@event.location} class="cal-event-location truncate text-[0.65rem] opacity-80">
+        {@event.location}
+      </span>
+    </div>
+    """
+  end
 
   defp default_event_content(assigns) do
     ~H"""

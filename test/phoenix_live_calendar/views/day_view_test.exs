@@ -31,7 +31,7 @@ defmodule PhoenixLiveCalendar.Views.DayViewTest do
 
       html = render(~H"<.day_view date={@date} min_time={~T[09:00:00]} max_time={~T[10:00:00]} />")
 
-      assert html =~ "grid-template-columns: repeat(1, 1fr)"
+      assert html =~ "grid-template-columns: repeat(1, minmax(0, 1fr))"
     end
   end
 end

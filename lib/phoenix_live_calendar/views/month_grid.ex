@@ -583,24 +583,10 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   # Markers that want a corner label chip. `show_label: false` (or a nil
   # label) renders only the cell tint — the heatmap case.
-  defp labeled_markers(markers) do
-    Enum.filter(markers, &(&1.show_label and &1.label != nil))
-  end
+  defp labeled_markers(markers), do: PhoenixLiveCalendar.DayMarker.labeled(markers)
 
   # A marker's own chip styling wins; type-based colors are the fallback.
-  defp marker_chip_class(%{class: class, text_color: text_color})
-       when not is_nil(class) or not is_nil(text_color) do
-    [class, text_color]
-  end
-
-  defp marker_chip_class(marker), do: marker_label_color(marker)
-
-  defp marker_label_color(%{type: :holiday}), do: "bg-error/30 text-error-content"
-  defp marker_label_color(%{type: :closure}), do: "bg-warning/30 text-warning-content"
-  defp marker_label_color(%{type: :notice}), do: "bg-info/20 text-info"
-  defp marker_label_color(%{type: :label}), do: "bg-success/20 text-success"
-  defp marker_label_color(%{type: :season}), do: "bg-accent/20 text-accent"
-  defp marker_label_color(_), do: "bg-base-200 text-base-content/60"
+  defp marker_chip_class(marker), do: PhoenixLiveCalendar.DayMarker.chip_class(marker)
 
   # -- Slot computation --
   # Assigns a consistent row index to each multi-day event across all days of the week
@@ -707,30 +693,17 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   end
 
   # First custom cell color among the day's markers, if any.
-  defp marker_custom_color(markers) do
-    Enum.find_value(markers, & &1.color)
-  end
+  defp marker_custom_color(markers), do: PhoenixLiveCalendar.DayMarker.custom_color(markers)
 
   # Semantic hook class for the day's markers (no bg utility).
-  defp marker_semantic_class(markers) do
-    cond do
-      Enum.any?(markers, &(not &1.available and &1.type == :holiday)) -> "cal-day-holiday"
-      Enum.any?(markers, &(not &1.available)) -> "cal-day-closed"
-      Enum.any?(markers, &(&1.type == :notice)) -> "cal-day-notice"
-      Enum.any?(markers, &(&1.type == :season)) -> "cal-day-season"
-      true -> nil
-    end
-  end
+  defp marker_semantic_class(markers), do: PhoenixLiveCalendar.DayMarker.semantic_class(markers)
 
   defp marker_bg_class([]), do: nil
 
   defp marker_bg_class(markers) do
-    case marker_semantic_class(markers) do
-      "cal-day-holiday" -> "cal-day-holiday bg-error/8"
-      "cal-day-closed" -> "cal-day-closed bg-error/5"
-      "cal-day-notice" -> "cal-day-notice bg-info/5"
-      "cal-day-season" -> "cal-day-season bg-accent/5"
-      nil -> nil
+    case {marker_semantic_class(markers), PhoenixLiveCalendar.DayMarker.type_tint(markers)} do
+      {nil, _} -> nil
+      {semantic, tint} -> [semantic, tint]
     end
   end
 

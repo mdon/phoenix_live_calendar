@@ -141,4 +141,138 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       assert html =~ "bg-primary/5"
     end
   end
+
+  describe "all-day lane packing" do
+    defp april_week, do: Enum.map(6..12, &Date.new!(2026, 4, &1))
+
+    test "overlapping all-day bars get distinct explicit lanes" do
+      events = [
+        %Event{id: "a", start: ~D[2026-04-06], end: ~D[2026-04-09], title: "Alpha", all_day: true},
+        %Event{id: "b", start: ~D[2026-04-08], end: ~D[2026-04-11], title: "Bravo", all_day: true}
+      ]
+
+      assigns = %{dates: april_week(), events: events}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+
+      assert html =~ "grid-row: 1"
+      assert html =~ "grid-row: 2"
+    end
+
+    test "non-overlapping all-day bars share the first lane" do
+      events = [
+        %Event{id: "a", start: ~D[2026-04-06], end: ~D[2026-04-08], title: "Alpha", all_day: true},
+        %Event{id: "b", start: ~D[2026-04-09], end: ~D[2026-04-11], title: "Bravo", all_day: true}
+      ]
+
+      assigns = %{dates: april_week(), events: events}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+
+      assert html =~ "grid-row: 1"
+      refute html =~ "grid-row: 2"
+    end
+  end
+
+  describe "day markers" do
+    test "labeled markers render as chips under the day header" do
+      markers = [
+        %PhoenixLiveCalendar.DayMarker{
+          id: "xmas",
+          label: "Christmas",
+          start_date: ~D[2026-04-08],
+          type: :holiday,
+          available: false
+        }
+      ]
+
+      assigns = %{dates: Enum.map(6..12, &Date.new!(2026, 4, &1)), markers: markers}
+      html = render(~H"<.week_grid dates={@dates} day_markers={@markers} />")
+
+      assert html =~ "cal-marker-label"
+      assert html =~ "Christmas"
+      # the type tint lands on the day column, with its semantic hook
+      assert html =~ "cal-day-holiday"
+      assert html =~ "bg-error/8"
+    end
+
+    test "a custom marker color tints the day column" do
+      markers = [
+        %PhoenixLiveCalendar.DayMarker{
+          id: "hm",
+          label: "42 min",
+          start_date: ~D[2026-04-08],
+          color: "bg-success/40",
+          show_label: false
+        }
+      ]
+
+      assigns = %{dates: Enum.map(6..12, &Date.new!(2026, 4, &1)), markers: markers}
+      html = render(~H"<.week_grid dates={@dates} day_markers={@markers} />")
+
+      assert html =~ "cal-day-marked"
+      assert html =~ "bg-success/40"
+      # show_label: false -> tint only, no chip
+      refute html =~ "cal-marker-label"
+    end
+  end
+
+  describe "event detail mode" do
+    test "week blocks show title, time range and location by default" do
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-08 10:00:00Z],
+          end: ~U[2026-04-08 11:30:00Z],
+          title: "Reading session",
+          location: "Library",
+          resource_id: nil
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-08]], events: events}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+
+      assert html =~ "cal-event-detail"
+      assert html =~ "10:00"
+      assert html =~ "11:30"
+      assert html =~ "Library"
+    end
+
+    test "event_detail={false} restores the single-line layout" do
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-08 10:00:00Z],
+          end: ~U[2026-04-08 11:30:00Z],
+          title: "Reading session",
+          location: "Library"
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-08]], events: events}
+      html = render(~H"<.week_grid dates={@dates} events={@events} event_detail={false} />")
+
+      refute html =~ "cal-event-detail"
+      refute html =~ "Library"
+      assert html =~ "Reading session"
+    end
+  end
+
+  describe "responsive headers" do
+    test "day names carry a narrow (phone) and short (desktop) variant" do
+      assigns = %{dates: [~D[2026-04-08]]}
+      html = render(~H"<.week_grid dates={@dates} />")
+
+      assert html =~ ~s(class="sm:hidden")
+      assert html =~ "hidden sm:inline"
+      assert html =~ ~s(aria-label="Wednesday")
+    end
+
+    test "columns use minmax(0, 1fr) so wide bars can't blow the row" do
+      assigns = %{dates: Enum.map(6..12, &Date.new!(2026, 4, &1))}
+      html = render(~H"<.week_grid dates={@dates} />")
+
+      assert html =~ "minmax(0, 1fr)"
+      refute html =~ "repeat(7, 1fr)"
+    end
+  end
 end
