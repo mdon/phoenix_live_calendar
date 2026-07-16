@@ -180,4 +180,23 @@ defmodule PhoenixLiveCalendar.Store.Ecto.EventSchemaTest do
       assert event.display == :auto
     end
   end
+
+  describe "layer_id (V2)" do
+    test "casts, validates and round-trips through to_event" do
+      changeset =
+        EventSchema.changeset(%EventSchema{}, %{
+          title: "Layered",
+          start_at: ~U[2026-04-01 10:00:00Z],
+          end_at: ~U[2026-04-01 11:00:00Z],
+          layer_id: "alice"
+        })
+
+      assert changeset.valid?
+      schema = Ecto.Changeset.apply_changes(changeset)
+      assert schema.layer_id == "alice"
+
+      event = EventSchema.to_event(schema)
+      assert event.layer_id == "alice"
+    end
+  end
 end

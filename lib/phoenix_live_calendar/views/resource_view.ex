@@ -128,7 +128,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
         <div class="flex-1 grid" style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}>
           <div
             :for={resource <- @resources}
-            class="cal-resource-column-header text-center py-2 border-l border-base-200"
+            class="cal-resource-column-header text-center py-2 border-s border-base-200"
           >
             <%= if @resource_header != [] do %>
               {render_slot(@resource_header, resource)}
@@ -160,7 +160,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
         >
           <div
             :for={resource <- @resources}
-            class="cal-resource-column border-l border-base-200 relative"
+            class="cal-resource-column border-s border-base-200 relative"
             data-resource-id={resource.id}
           >
             <%!-- Slot grid lines --%>

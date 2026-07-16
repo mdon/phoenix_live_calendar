@@ -83,16 +83,16 @@ defmodule PhoenixLiveCalendar.Utils.OverlapLayout do
   ## Examples
 
       style = OverlapLayout.position_style(%{column: 1, total_columns: 3})
-      # => "left: 33.33%; width: 33.33%"
+      # => "inset-inline-start: 33.33%; width: 33.33%"
   """
   @spec position_style(layout_info()) :: String.t()
   def position_style(%{column: col, total_columns: total}) when total > 0 do
     width = 100.0 / total
     left = col * width
-    "left: #{Float.round(left, 2)}%; width: #{Float.round(width, 2)}%"
+    "inset-inline-start: #{Float.round(left, 2)}%; width: #{Float.round(width, 2)}%"
   end
 
-  def position_style(_), do: "left: 0%; width: 100%"
+  def position_style(_), do: "inset-inline-start: 0%; width: 100%"
 
   # -- Private --
 

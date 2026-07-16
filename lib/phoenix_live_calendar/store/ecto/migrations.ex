@@ -18,7 +18,7 @@ if Code.ensure_loaded?(Ecto) do
         defmodule MyApp.Repo.Migrations.AddPhoenixLiveCalendar do
           use Ecto.Migration
 
-          def up, do: PhoenixLiveCalendar.Store.Ecto.Migrations.up(version: 1)
+          def up, do: PhoenixLiveCalendar.Store.Ecto.Migrations.up(version: 2)
           def down, do: PhoenixLiveCalendar.Store.Ecto.Migrations.down(version: 1)
         end
 
@@ -30,7 +30,7 @@ if Code.ensure_loaded?(Ecto) do
 
     use Ecto.Migration
 
-    @current_version 1
+    @current_version 2
 
     @doc "Returns the current migration version."
     def current_version, do: @current_version
@@ -43,6 +43,7 @@ if Code.ensure_loaded?(Ecto) do
       prefix = Keyword.get(opts, :prefix, "public")
 
       if version >= 1, do: migrate_v1_up(prefix)
+      if version >= 2, do: migrate_v2_up(prefix)
     end
 
     @doc """
@@ -52,7 +53,22 @@ if Code.ensure_loaded?(Ecto) do
       version = Keyword.get(opts, :version, @current_version)
       prefix = Keyword.get(opts, :prefix, "public")
 
-      if version >= 1, do: migrate_v1_down(prefix)
+      if version <= 2, do: migrate_v2_down(prefix)
+      if version <= 1, do: migrate_v1_down(prefix)
+    end
+
+    # -- V2: layers --
+
+    defp migrate_v2_up(prefix) do
+      alter table(:phoenix_live_calendar_events, prefix: prefix) do
+        add_if_not_exists(:layer_id, :string)
+      end
+    end
+
+    defp migrate_v2_down(prefix) do
+      alter table(:phoenix_live_calendar_events, prefix: prefix) do
+        remove_if_exists(:layer_id, :string)
+      end
     end
 
     # -- V1: Initial schema --

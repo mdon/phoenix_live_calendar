@@ -88,7 +88,7 @@ defmodule PhoenixLiveCalendar.Components.TimeGutter do
       aria-hidden="true"
     >
       <div class="flex items-center">
-        <div class="w-2 h-2 rounded-full bg-error -ml-1"></div>
+        <div class="w-2 h-2 rounded-full bg-error -ms-1"></div>
         <div class="flex-1 h-px bg-error"></div>
       </div>
     </div>

@@ -244,4 +244,70 @@ defmodule PhoenixLiveCalendar.Utils.ConstraintsTest do
              )
     end
   end
+
+  describe "cross-midnight availability (sweep regression)" do
+    defp evening_and_night_windows do
+      [
+        %PhoenixLiveCalendar.Availability{
+          days_of_week: [1, 2, 3, 4, 5, 6, 7],
+          start_time: ~T[22:00:00],
+          end_time: ~T[23:59:59]
+        },
+        %PhoenixLiveCalendar.Availability{
+          days_of_week: [1, 2, 3, 4, 5, 6, 7],
+          start_time: ~T[00:00:00],
+          end_time: ~T[02:00:00]
+        }
+      ]
+    end
+
+    test "a booking spilling past the window's midnight end is rejected" do
+      # 23:00 -> 01:00 against a 22:00-23:59 window ONLY: the old start-day
+      # time check compared the 01:00 end as an earlier time-of-day and let
+      # it pass.
+      config = %PhoenixLiveCalendar.BookingConfig{min_duration: 15, max_duration: 240}
+
+      [evening | _] = evening_and_night_windows()
+
+      assert {:error, :outside_availability, _} =
+               Constraints.validate_booking(
+                 ~U[2026-04-01 23:00:00Z],
+                 ~U[2026-04-02 01:00:00Z],
+                 config,
+                 [],
+                 availabilities: [evening],
+                 now: ~U[2026-04-01 12:00:00Z]
+               )
+    end
+
+    test "a cross-midnight booking passes when BOTH day segments are covered" do
+      config = %PhoenixLiveCalendar.BookingConfig{min_duration: 15, max_duration: 240}
+
+      assert :ok =
+               Constraints.validate_booking(
+                 ~U[2026-04-01 23:00:00Z],
+                 ~U[2026-04-02 01:00:00Z],
+                 config,
+                 [],
+                 availabilities: evening_and_night_windows(),
+                 now: ~U[2026-04-01 12:00:00Z]
+               )
+    end
+
+    test "a booking ending exactly at midnight validates against its own day only" do
+      config = %PhoenixLiveCalendar.BookingConfig{min_duration: 15, max_duration: 240}
+
+      [evening | _] = evening_and_night_windows()
+
+      assert :ok =
+               Constraints.validate_booking(
+                 ~U[2026-04-01 22:30:00Z],
+                 ~U[2026-04-02 00:00:00Z],
+                 config,
+                 [],
+                 availabilities: [evening],
+                 now: ~U[2026-04-01 12:00:00Z]
+               )
+    end
+  end
 end

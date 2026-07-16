@@ -98,7 +98,10 @@ defmodule PhoenixLiveCalendar.Components.EventPopover do
       <%!-- Color bar + title --%>
       <div class="flex items-start gap-2">
         <div
-          class={["w-3 h-3 rounded-full mt-1 flex-shrink-0", @event.color || "bg-primary"]}
+          class={[
+            "w-3 h-3 rounded-full mt-1 flex-shrink-0",
+            PhoenixLiveCalendar.Theme.bg(@event.color) || "bg-primary"
+          ]}
           aria-hidden="true"
         >
         </div>

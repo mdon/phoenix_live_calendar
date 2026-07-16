@@ -83,19 +83,19 @@ defmodule PhoenixLiveCalendar.Utils.OverlapLayoutTest do
   describe "position_style/1" do
     test "column 1 of 3 → one-third width, offset one-third" do
       assert OverlapLayout.position_style(%{column: 1, total_columns: 3}) ==
-               "left: 33.33%; width: 33.33%"
+               "inset-inline-start: 33.33%; width: 33.33%"
     end
 
     test "column 0 of 2 → left edge, half width" do
       assert OverlapLayout.position_style(%{column: 0, total_columns: 2}) ==
-               "left: 0.0%; width: 50.0%"
+               "inset-inline-start: 0.0%; width: 50.0%"
     end
 
     test "falls back to full width on a zero/!invalid total" do
       assert OverlapLayout.position_style(%{column: 0, total_columns: 0}) ==
-               "left: 0%; width: 100%"
+               "inset-inline-start: 0%; width: 100%"
 
-      assert OverlapLayout.position_style(%{}) == "left: 0%; width: 100%"
+      assert OverlapLayout.position_style(%{}) == "inset-inline-start: 0%; width: 100%"
     end
   end
 end

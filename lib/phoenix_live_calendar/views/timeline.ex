@@ -193,7 +193,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
         >
           <div
             class={[
-              "cal-timeline-resource-header flex-shrink-0 border-r border-base-200 px-2 py-2 font-medium text-sm",
+              "cal-timeline-resource-header flex-shrink-0 border-e border-base-200 px-2 py-2 font-medium text-sm",
               @sticky_resource_column && "sticky start-0 z-30 bg-base-100"
             ]}
             style={"width: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@resource_width)}"}
@@ -202,7 +202,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
           <div class="flex">
             <div
               :for={slot <- @slots}
-              class="cal-timeline-time-header text-xs text-base-content/60 text-center border-r border-base-200 py-2"
+              class="cal-timeline-time-header text-xs text-base-content/60 text-center border-e border-base-200 py-2"
               style={"width: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@slot_width)}"}
             >
               {I18n.format_time(slot, format: @time_format)}
@@ -218,7 +218,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
           <%!-- Resource label --%>
           <div
             class={[
-              "cal-timeline-resource-label flex-shrink-0 min-w-0 overflow-hidden border-r border-base-200 px-2 py-2 flex items-center",
+              "cal-timeline-resource-label flex-shrink-0 min-w-0 overflow-hidden border-e border-base-200 px-2 py-2 flex items-center",
               @sticky_resource_column && "sticky start-0 z-20 bg-base-100"
             ]}
             style={"width: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@resource_width)}"}
@@ -241,7 +241,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
           <div class="flex relative">
             <div
               :for={slot <- @slots}
-              class="cal-timeline-slot border-r border-base-200"
+              class="cal-timeline-slot border-e border-base-200"
               style={"width: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@slot_width)}; min-height: 3rem;"}
               phx-click={@on_slot_click}
               phx-value-resource-id={resource.id}

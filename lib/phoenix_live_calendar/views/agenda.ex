@@ -154,7 +154,7 @@ defmodule PhoenixLiveCalendar.Views.Agenda do
         {I18n.label(:today, @translations)}
       </span>
 
-      <span class="text-xs text-base-content/40 ml-auto">
+      <span class="text-xs text-base-content/40 ms-auto">
         {@event_count}
       </span>
     </div>

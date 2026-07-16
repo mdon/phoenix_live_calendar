@@ -194,7 +194,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
         <%!-- Week number --%>
         <div
           :if={@show_week_numbers}
-          class="cal-week-number text-sm text-base-content text-center pt-1 border-r border-base-content/10 row-span-1"
+          class="cal-week-number text-sm text-base-content text-center pt-1 border-e border-base-content/10 row-span-1"
         >
           {elem(DateHelpers.week_number(hd(week)), 1)}
         </div>
@@ -203,7 +203,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
         <div
           :for={day <- week}
           class={[
-            "cal-day-cell min-w-0 border-r border-base-content/5 relative",
+            "cal-day-cell min-w-0 border-e border-base-content/5 relative",
             if(@expand_cells,
               do: "min-h-24 md:min-h-28 lg:min-h-32",
               else: "min-h-24 h-24 md:h-28 lg:h-32 overflow-hidden"
@@ -290,7 +290,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                          row, so a bar continuing from a previous week (or from
                          before the visible month) still shows its title. --%>
                     <%= if is_start or day == hd(week) do %>
-                      <span :if={event.icon} class="mr-0.5">{event.icon}</span>
+                      <span :if={event.icon} class="me-0.5">{event.icon}</span>
                       <span class="truncate">{event.title || "(No title)"}</span>
                     <% end %>
                   </div>
@@ -315,12 +315,12 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
                       event.status == :cancelled && "opacity-50 line-through",
                       event.class
                     ]}
-                    style={"margin-left: #{pct(gl)}; width: #{pct(gw)}"}
+                    style={"margin-inline-start: #{pct(gl)}; width: #{pct(gw)}"}
                     phx-click={@on_event_click}
                     phx-value-event-id={event.id}
                     title={event.title}
                   >
-                    <span :if={event.icon} class="mr-0.5">{event.icon}</span>
+                    <span :if={event.icon} class="me-0.5">{event.icon}</span>
                     <span class="truncate">{event.title || "(No title)"}</span>
                   </div>
                 <% true -> %>
@@ -451,9 +451,9 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     end
   end
 
-  # `margin-left` + `width` positioning a bar to its real hour-span. Off (or an
+  # `margin-inline-start` + `width` positioning a bar to its real hour-span. Off (or an
   # all-day event, which has no hours) → nil, so the bar stays full-width. The
-  # inline margin-left overrides the fixed ml-1 cap margin.
+  # inline margin overrides the fixed ms-1 cap margin.
   defp geometry_style(_event, _is_start, _is_end, false), do: nil
 
   defp geometry_style(%Event{start: %Date{}}, _is_start, _is_end, true), do: nil
@@ -465,7 +465,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
       # a full-width middle day — no need for inline geometry
       nil
     else
-      "margin-left: #{pct(left)}; width: #{pct(width)}"
+      "margin-inline-start: #{pct(left)}; width: #{pct(width)}"
     end
   end
 
@@ -519,9 +519,9 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   # Static strings for Tailwind purge safety — each return value is a
   # complete class string that the scanner can find in the source.
-  defp multiday_rounding_class(true, true), do: "rounded ml-1 mr-1"
-  defp multiday_rounding_class(true, false), do: "rounded-l ml-1"
-  defp multiday_rounding_class(false, true), do: "rounded-r mr-1"
+  defp multiday_rounding_class(true, true), do: "rounded ms-1 me-1"
+  defp multiday_rounding_class(true, false), do: "rounded-s ms-1"
+  defp multiday_rounding_class(false, true), do: "rounded-e me-1"
   defp multiday_rounding_class(false, false), do: nil
 
   # -- Day marker label (top-right corner) --
@@ -546,7 +546,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
       ]}
       title={hd(@markers).description || hd(@markers).label}
     >
-      <span :if={hd(@markers).icon} class="mr-0.5">{hd(@markers).icon}</span>
+      <span :if={hd(@markers).icon} class="me-0.5">{hd(@markers).icon}</span>
       {hd(@markers).label}
     </span>
     """
@@ -562,7 +562,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
       ]}
       title={hd(@markers).description || hd(@markers).label}
     >
-      <span :if={hd(@markers).icon} class="mr-0.5">{hd(@markers).icon}</span>
+      <span :if={hd(@markers).icon} class="me-0.5">{hd(@markers).icon}</span>
       {hd(@markers).label}
     </span>
     """
@@ -592,7 +592,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
         data-ticker-index={idx}
         title={marker.description || marker.label}
       >
-        <span :if={marker.icon} class="mr-0.5 flex-shrink-0">{marker.icon}</span>
+        <span :if={marker.icon} class="me-0.5 flex-shrink-0">{marker.icon}</span>
         <span class="truncate">{marker.label}</span>
       </span>
     </div>

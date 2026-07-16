@@ -99,8 +99,9 @@ defmodule PhoenixLiveCalendar.Components.Header do
       ]}>
         <%!-- Info (ⓘ) disclosure: a no-JS <details> popover whose body is the
              consumer's `:help` slot (e.g. a key for the calendar's markings).
-             Sits in the top-left corner. Inline SVG so the lib carries no
-             icon-font dependency. --%>
+             Leads the toolbar in the centered layout; follows the title in
+             the start layout. Inline SVG so the lib carries no icon-font
+             dependency. --%>
         <details :if={@help != []} class="cal-help dropdown">
           <summary
             class="cal-help-toggle btn btn-sm btn-ghost btn-circle list-none [&::-webkit-details-marker]:hidden"

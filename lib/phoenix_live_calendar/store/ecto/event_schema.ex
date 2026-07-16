@@ -43,6 +43,7 @@ if Code.ensure_loaded?(Ecto) do
       field(:class, :string)
 
       field(:group_id, :string)
+      field(:layer_id, :string)
       field(:resource_id, :string)
       field(:resource_ids, {:array, :string})
       field(:category, :string)
@@ -84,6 +85,7 @@ if Code.ensure_loaded?(Ecto) do
       :text_color,
       :class,
       :group_id,
+      :layer_id,
       :resource_id,
       :resource_ids,
       :category,
@@ -147,6 +149,7 @@ if Code.ensure_loaded?(Ecto) do
         class: schema.class,
         display: parse_display(schema.display),
         group_id: schema.group_id,
+        layer_id: schema.layer_id,
         resource_id: schema.resource_id,
         resource_ids: schema.resource_ids,
         category: schema.category,

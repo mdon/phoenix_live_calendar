@@ -307,7 +307,7 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   # -- Border color (for custom attention indicators) --
 
   defp border_color_class(%Event{border_color: nil}), do: nil
-  defp border_color_class(%Event{border_color: color}), do: "border-l-4 #{color}"
+  defp border_color_class(%Event{border_color: color}), do: "border-s-4 #{color}"
 
   # -- Base display class --
 

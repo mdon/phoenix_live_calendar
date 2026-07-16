@@ -202,18 +202,21 @@ defmodule PhoenixLiveCalendar.Utils.Constraints do
   defp validate_availability(_start_dt, _end_dt, [], _resource_id), do: :ok
 
   defp validate_availability(start_dt, end_dt, availabilities, resource_id) do
-    date = DateTime.to_date(start_dt)
-    start_time = DateTime.to_time(start_dt)
-    end_time = DateTime.to_time(end_dt)
-
-    windows = Availability.windows_for_date(availabilities, date, resource_id)
-
-    # Check that the entire booking falls within an available window
+    # A booking is split at midnight and EVERY day-segment must fall within
+    # that day's windows — the old start-day-only time check let a
+    # 23:00 -> 01:00 booking pass a window ending 23:59 (its 01:00 end
+    # compared as an earlier time-of-day).
     covered =
-      Enum.any?(windows, fn w ->
-        w.available and
-          Time.compare(start_time, w.start_time) != :lt and
-          Time.compare(end_time, w.end_time) != :gt
+      start_dt
+      |> booking_segments(end_dt)
+      |> Enum.all?(fn {date, seg_start, seg_end} ->
+        windows = Availability.windows_for_date(availabilities, date, resource_id)
+
+        Enum.any?(windows, fn w ->
+          w.available and
+            Time.compare(seg_start, w.start_time) != :lt and
+            Time.compare(seg_end, w.end_time) != :gt
+        end)
       end)
 
     if covered do
@@ -221,6 +224,32 @@ defmodule PhoenixLiveCalendar.Utils.Constraints do
     else
       {:error, :outside_availability, "Booking falls outside available hours"}
     end
+  end
+
+  # Splits [start_dt, end_dt) into one {date, start_time, end_time} segment
+  # per calendar day. Exclusive end: a booking ending exactly at midnight
+  # belongs entirely to the previous day.
+  defp booking_segments(start_dt, end_dt) do
+    start_date = DateTime.to_date(start_dt)
+    end_time = DateTime.to_time(end_dt)
+
+    last_date =
+      if end_time == ~T[00:00:00],
+        do: Date.add(DateTime.to_date(end_dt), -1),
+        else: DateTime.to_date(end_dt)
+
+    Enum.map(Date.range(start_date, last_date), fn date ->
+      seg_start = if date == start_date, do: DateTime.to_time(start_dt), else: ~T[00:00:00]
+
+      seg_end =
+        cond do
+          date != last_date -> ~T[23:59:59]
+          end_time == ~T[00:00:00] -> ~T[23:59:59]
+          true -> end_time
+        end
+
+      {date, seg_start, seg_end}
+    end)
   end
 
   defp validate_no_overlap(start_dt, end_dt, config, events) do

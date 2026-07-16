@@ -110,7 +110,6 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
     # Group events by date
     events_by_date = DateHelpers.group_events_by_date(timed_events, assigns.dates)
-    all_day_by_date = DateHelpers.group_events_by_date(all_day_events, assigns.dates)
 
     now = assigns.now || Time.utc_now()
     col_count = length(assigns.dates)
@@ -135,7 +134,6 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       |> assign(:slots, slots)
       |> assign(:events_by_date, events_by_date)
       |> assign(:all_day_events, all_day_events)
-      |> assign(:all_day_by_date, all_day_by_date)
       |> assign(:overlap_layouts, overlap_layouts)
       |> assign(:now, now)
       |> assign(:col_count, col_count)
@@ -156,7 +154,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
           <div
             :for={date <- @dates}
             class={[
-              "cal-day-column-header min-w-0 text-center py-1.5 sm:py-2 border-l border-base-200",
+              "cal-day-column-header min-w-0 text-center py-1.5 sm:py-2 border-s border-base-200",
               date == @today && "bg-primary/5"
             ]}
           >
@@ -197,7 +195,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 ]}
                 title={marker.description || marker.label}
               >
-                <span :if={marker.icon} class="mr-0.5">{marker.icon}</span>
+                <span :if={marker.icon} class="me-0.5">{marker.icon}</span>
                 {marker.label}
               </span>
             </div>
@@ -217,7 +215,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
               class="grid absolute inset-0"
               style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}
             >
-              <div :for={_date <- @dates} class="border-l border-base-200"></div>
+              <div :for={_date <- @dates} class="border-s border-base-200"></div>
             </div>
             <%!-- Spanning event bars --%>
             <div
@@ -249,7 +247,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 phx-value-event-id={event.id}
                 title={event.title}
               >
-                <span :if={event.icon} class="mr-0.5">{event.icon}</span>
+                <span :if={event.icon} class="me-0.5">{event.icon}</span>
                 {event.title || "(No title)"}
               </div>
             </div>
@@ -277,7 +275,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
           <div
             :for={date <- @dates}
             class={[
-              "cal-day-column min-w-0 border-l border-base-200 relative",
+              "cal-day-column min-w-0 border-s border-base-200 relative",
               day_column_classes(
                 Map.get(@markers_by_date, date, []),
                 date == @today,
@@ -331,7 +329,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                     time_format={@time_format}
                     content={event_tier(window, @event_content, @rem_per_minute)}
                     default_color="bg-primary/80"
-                    class="h-full text-xs border-l-2 border-primary"
+                    class="h-full text-xs border-s-2 border-primary"
                   />
                 <% end %>
               </div>

@@ -542,7 +542,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       html = render(~H"<.month_grid date={@date} events={@events} />")
 
       assert html =~ "cal-multiday-bar"
-      refute html =~ "margin-left:"
+      refute html =~ "margin-inline-start:"
       refute html =~ "width:"
     end
 
@@ -551,9 +551,9 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
 
       # start day (14:00): offset 14/24 ≈ 58.33%, width the remaining 41.67%
-      assert html =~ "margin-left: 58.33%; width: 41.67%"
+      assert html =~ "margin-inline-start: 58.33%; width: 41.67%"
       # last day (ends 10:00): from the left, 10/24 ≈ 41.67% wide
-      assert html =~ "margin-left: 0.0%; width: 41.67%"
+      assert html =~ "margin-inline-start: 0.0%; width: 41.67%"
     end
 
     test "on: a multi-day ALL-DAY event still fills whole days (no hours)" do
@@ -565,7 +565,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
 
       assert html =~ "cal-multiday-bar"
-      refute html =~ "margin-left:"
+      refute html =~ "margin-inline-start:"
       refute html =~ "width:"
     end
 
@@ -585,7 +585,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
 
       # 09:00 => 37.5% offset; 90 min => 6.25% wide
       assert html =~ "cal-event-timed"
-      assert html =~ "margin-left: 37.5%; width: 6.25%"
+      assert html =~ "margin-inline-start: 37.5%; width: 6.25%"
     end
 
     test "on: a 5-minute event is floored to a 1-hour-wide bar so it stays visible" do
@@ -603,7 +603,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
 
       # 5 min ≈ 0.35% would be invisible → floored to 1 hour = 4.17%
-      assert html =~ "margin-left: 37.5%; width: 4.17%"
+      assert html =~ "margin-inline-start: 37.5%; width: 4.17%"
     end
 
     test "on: a single-day ALL-DAY event stays a full chip (no hours)" do
@@ -613,7 +613,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       html = render(~H"<.month_grid date={@date} events={@events} respect_hours={true} />")
 
       assert html =~ "Holiday"
-      refute html =~ "margin-left:"
+      refute html =~ "margin-inline-start:"
     end
   end
 
