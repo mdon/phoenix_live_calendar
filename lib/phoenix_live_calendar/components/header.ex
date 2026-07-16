@@ -20,8 +20,12 @@ defmodule PhoenixLiveCalendar.Components.Header do
   - `on_today` — Event or JS command for "go to today"
   - `on_view_change` — Event or JS command for view switching
   - `today_visible` — Whether today is in the current visible range (default: false)
-  - `show_today_button` — Whether to show the today button at all (default: true).
-    When `:auto`, the button is hidden if today is visible.
+  - `show_today_button` — Whether to show the today button at all (default:
+    `:auto` — hidden while today is visible)
+  - `layout` — `:auto` (default) collapses to a start-aligned row when both
+    wings are empty; `:centered`/`:start` force a layout (`:start` keeps
+    wing content inline after the title)
+  - `help_label` — aria label for the info (ⓘ) disclosure
   - `translations` — Translation overrides
   - `class` — Additional CSS classes
   - `dir` — Text direction (:ltr or :rtl)
@@ -30,6 +34,7 @@ defmodule PhoenixLiveCalendar.Components.Header do
 
   - `toolbar_start` — Custom content before the navigation
   - `toolbar_end` — Custom content after the view switcher
+  - `help` — Content for the info (ⓘ) disclosure (a no-JS details popover)
   """
   attr :title, :string, required: true
   attr :view, :atom, default: :month

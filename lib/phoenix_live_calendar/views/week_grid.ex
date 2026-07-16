@@ -17,9 +17,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   ## Attributes
 
   - `dates` — List of dates to display as columns
+  - `id` — optional per-instance prefix for event DOM ids
   - `events` — List of `PhoenixLiveCalendar.Event` structs
-  - `selected_date` — Currently selected date
+  - `selected_date` — Currently selected date (tints its column)
   - `today` — Today's date
+  - `now` — wall-clock time for the now indicator (default `Time.utc_now()`)
   - `min_time` — Earliest visible time (default: `~T[00:00:00]`)
   - `max_time` — Latest visible time (default: `~T[23:59:59]`)
   - `slot_duration` — Slot duration in minutes (default: 30)

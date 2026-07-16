@@ -78,13 +78,14 @@ defmodule PhoenixLiveCalendar.Widgets do
         <li :for={event <- @upcoming}>
           <button
             type="button"
-            class="flex w-full items-center gap-1.5 py-1 text-start disabled:cursor-default"
+            class="cal-next-events-row flex w-full items-center gap-1.5 py-1 text-start disabled:cursor-default"
             disabled={is_nil(@on_event_click)}
             phx-click={@on_event_click}
             phx-value-event-id={event.id}
+            title={event.title}
           >
             <span
-              class={["w-2 h-2 rounded-full flex-shrink-0", event_dot(event)]}
+              class={["cal-event-dot w-2 h-2 rounded-full flex-shrink-0", event_dot(event)]}
               aria-hidden="true"
             >
             </span>
@@ -153,7 +154,7 @@ defmodule PhoenixLiveCalendar.Widgets do
             <% events when length(events) <= 3 -> %>
               <span
                 :for={event <- events}
-                class={["w-1 h-1 rounded-full", event_dot(event)]}
+                class={["cal-event-dot w-1 h-1 rounded-full", event_dot(event)]}
                 aria-hidden="true"
               >
               </span>
@@ -186,6 +187,7 @@ defmodule PhoenixLiveCalendar.Widgets do
   attr :scale, :atom, default: :linear
   attr :max, :any, default: nil
   attr :cell_class, :string, default: "w-1.5 h-1.5 rounded-[2px]"
+  attr :translations, :map, default: %{}
   attr :class, :string, default: ""
 
   def activity_grid(assigns) do
@@ -212,7 +214,7 @@ defmodule PhoenixLiveCalendar.Widgets do
     <div
       class={["cal-widget cal-activity-grid grid grid-rows-7 grid-flow-col gap-0.5 w-max", @class]}
       role="img"
-      aria-label="Activity"
+      aria-label={I18n.label(:activity, @translations)}
     >
       <span
         :for={day <- @days}
@@ -284,7 +286,7 @@ defmodule PhoenixLiveCalendar.Widgets do
     <div
       class={["cal-widget cal-activity-month grid grid-cols-7 gap-0.5 w-max", @class]}
       role="img"
-      aria-label="Activity"
+      aria-label={I18n.label(:activity, @translations)}
     >
       <span
         :for={initial <- @day_initials}

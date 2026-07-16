@@ -169,7 +169,10 @@ end
 | `event_content` | atom | `:auto` | Week/day block content by estimated height: `:detail` / `:inline` / `:title` / `:none` tiers — whole lines or none, never clipped text; pass a tier to force it |
 | `min_event_height` | string | `"1.25rem"` | Height floor for week/day event blocks (one text line); `"0"` disables |
 | `header_layout` | atom | `:auto` | Toolbar collapses to a start-aligned row when both wings are empty; `:centered`/`:start` force |
-| `label_position` | atom | `:fit` | Timeline bar labels: inside when the estimate fits, else outside beside the bar (`label_fit_fallback: :none` to suppress); `:inside`/`:outside`/`:none` force |
+| `label_position` | atom | `:fit` | Timeline bar labels: inside when the estimate fits, else outside beside the bar; `:inside`/`:outside`/`:none` force |
+| `label_fit_ratio` | float | `0.75` | How much of the estimated label must fit for `:fit` to choose inside |
+| `label_fit_fallback` | atom | `:outside` | What `:fit` does when the label doesn't fit: `:outside` or `:none` (tooltip only) |
+| `show_time_axis` | boolean | `true` | Timeline: render the sticky hour header |
 | `day_markers` | list | `[]` | `DayMarker` structs — cell tints + labels in the month, week, day AND year views; a marker's own `color`/`text_color`/`class`/`show_label: false` enable heatmap-style views |
 | `filter_to_date` | boolean | `true` | Timeline: only render events occupying the displayed date |
 | `clamp_to_date` | boolean | `true` | Timeline: clamp midnight-crossing events to the displayed date (23:50→00:20 renders on both days correctly) |
@@ -186,6 +189,32 @@ end
 | `on_event_click` | `event_id` | Event clicked |
 | `on_view_change` | `%{view, date}` | View switched |
 | `on_date_range_change` | `%{start, end, view, date}` | Visible range changed |
+| `on_layers_change` | `%{visible: ids, hidden: ids}` | A legend chip was toggled |
+
+## Heatmaps
+
+```elixir
+# Date => number, bucketed onto an intensity palette
+markers = PhoenixLiveCalendar.Heatmap.markers(minutes_by_day, scale: :quantile)
+
+<.live_component module={PhoenixLiveCalendar.CalendarComponent} id="history" day_markers={markers} />
+
+# quieter dot style, preset palettes (:success | :heat | :cool | :mono)
+PhoenixLiveCalendar.Heatmap.markers(data, style: :dot, palette: :heat)
+```
+
+## Widgets
+
+The most compressed useful form of each surface, for dashboard cells:
+
+```elixir
+<PhoenixLiveCalendar.Widgets.next_events events={@events} limit={3} />
+<PhoenixLiveCalendar.Widgets.week_strip events={@events} />
+<PhoenixLiveCalendar.Widgets.activity_grid data={@minutes_by_day} />
+<PhoenixLiveCalendar.Widgets.activity_month data={@minutes_by_day} />
+<PhoenixLiveCalendar.Widgets.mini_timeline date={@today} resources={@resources} events={@events} />
+<PhoenixLiveCalendar.Components.MiniCalendar.mini_calendar date={@today} events_by_date={@by_date} />
+```
 
 ## Using Individual Views
 

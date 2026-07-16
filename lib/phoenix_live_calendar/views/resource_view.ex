@@ -18,6 +18,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
   ## Attributes
 
   - `date` — The date to display
+  - `id` — optional per-instance prefix for event DOM ids
   - `resources` — List of `PhoenixLiveCalendar.Resource` structs (one column each)
   - `events` — List of `PhoenixLiveCalendar.Event` structs (linked via resource_id)
   - `min_time` — Earliest visible time (default: `~T[00:00:00]`)

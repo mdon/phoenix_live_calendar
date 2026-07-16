@@ -40,8 +40,12 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   ## Attributes
 
   - `date` — The date to display
+  - `id` — optional per-instance prefix for event DOM ids
   - `resources` — List of `PhoenixLiveCalendar.Resource` structs
-  - `events` — List of `PhoenixLiveCalendar.Event` structs (linked to resources via resource_id)
+  - `events` — List of `PhoenixLiveCalendar.Event` structs (matched to a row
+    via `resource_id` or the plural `resource_ids`)
+  - `show_time_axis` — render the sticky time header (default `true`;
+    widgets turn it off)
   - `min_time` — Earliest visible time (default: `~T[00:00:00]`)
   - `max_time` — Latest visible time (default: `~T[23:59:59]`)
   - `slot_duration` — Slot duration in minutes (default: 60)

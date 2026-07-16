@@ -42,6 +42,8 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   - `respect_hours` — position timed events by the hours they occupy (1h min width) instead of full-day
   - `show_week_numbers` / `show_weekends` / `fixed_weeks` — layout toggles
   - `on_date_click` / `on_event_click` / `on_more_click` — JS commands or event names
+  - `id` — optional per-instance prefix for generated DOM ids
+  - `marker_ticker` / `marker_ticker_interval` — cycle stacked marker chips
   - `translations` / `time_format` / `dir` / `class` — presentation
   """
   attr :date, Date, required: true
@@ -161,9 +163,10 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
       |> assign(:day_names, day_names)
 
     ~H"""
-    <div class={["cal-month-grid", @class]} dir={to_string(@dir)}>
+    <div class={["cal-month-grid", @class]} dir={to_string(@dir)} role="grid">
       <%!-- Day headers --%>
       <div
+        role="row"
         class="cal-month-header grid border-b-2 border-base-content/15 bg-base-content/5"
         style={"grid-template-columns: #{if @show_week_numbers, do: "2rem ", else: ""}repeat(#{@days_per_week}, minmax(0, 1fr))"}
       >

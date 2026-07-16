@@ -118,6 +118,7 @@ defmodule PhoenixLiveCalendar.Utils.I18n do
     layers: "Calendars",
     ongoing: "Ongoing",
     n_day: "%{count} Day",
+    activity: "Activity",
     earlier: "earlier",
     later: "later",
     earlier_tasks: "%{count} earlier",

@@ -20,6 +20,12 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   - `event` — A `PhoenixLiveCalendar.Event` struct
   - `on_click` — Event handler when the event is clicked
   - `compact` — Render in compact mode (title only, no time)
+  - `content` — how much to render: `:detail` / `:inline` (default) /
+    `:title` / `:none` — the time grids pick a tier from the block's
+    estimated height (`tier_for_height/1`)
+  - `default_color` — background when the event has no `color` of its own
+  - `id_suffix` — disambiguates the DOM id when the same event renders more
+    than once on a page (per-date / per-resource / per-view-instance)
   - `class` — Additional CSS classes
   - `time_format` — `:h24` or `:h12` (default: `:h24`)
 
