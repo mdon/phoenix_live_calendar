@@ -178,19 +178,31 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
             <%!-- Positioned events --%>
             <div class="absolute inset-0 pointer-events-none">
               <div
-                :for={event <- Map.get(@events_by_resource, resource.id, [])}
-                :if={Event.day_window(event, @date, @min_time, @max_time)}
-                class="absolute start-0.5 end-0.5 pointer-events-auto z-10"
-                style={event_position_style(event, @date, @min_time, @max_time, @min_event_height)}
+                :for={
+                  {event, window} <-
+                    day_segments(
+                      Map.get(@events_by_resource, resource.id, []),
+                      @date,
+                      @min_time,
+                      @max_time
+                    )
+                }
+                class={
+                  [
+                    "absolute start-0.5 end-0.5 pointer-events-auto",
+                    # an all-day event spans the whole column — keep it UNDER
+                    # the timed blocks so it can't obscure or intercept them
+                    if(Event.all_day?(event), do: "z-0 opacity-80", else: "z-10")
+                  ]
+                }
+                style={event_position_style(window, @min_time, @max_time, @min_event_height)}
               >
                 <%= if @event != [] do %>
                   {render_slot(@event, event)}
                 <% else %>
                   <EventItem.event_item
                     event={event}
-                    content={
-                      event_tier(event, @date, @event_content, @min_time, @max_time, @rem_per_minute)
-                    }
+                    content={event_tier(window, @event_content, @rem_per_minute)}
                     id_suffix={EventItem.instance_suffix(@id, resource.id)}
                     on_click={@on_event_click}
                     time_format={@time_format}
@@ -215,11 +227,19 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
     """
   end
 
+  # Each column's renderable {event, window} pairs, computed once per event.
+  defp day_segments(events, date, min_time, max_time) do
+    Enum.flat_map(events, fn event ->
+      case Event.day_window(event, date, min_time, max_time) do
+        nil -> []
+        window -> [{event, window}]
+      end
+    end)
+  end
+
   # Shared per-day segment rule + the rem floor (the old 1.5% floor changed
   # real size with the visible window) — the week grid's geometry.
-  defp event_position_style(event, date, min_time, max_time, min_height) do
-    {start_time, end_time} = Event.day_window(event, date, min_time, max_time)
-
+  defp event_position_style({start_time, end_time}, min_time, max_time, min_height) do
     top = TimeSlots.time_to_percentage(start_time, min_time: min_time, max_time: max_time)
     bottom = TimeSlots.time_to_percentage(end_time, min_time: min_time, max_time: max_time)
     height = bottom - top
@@ -230,10 +250,9 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
     end
   end
 
-  defp event_tier(event, date, :auto, min_time, max_time, rem_per_minute) do
-    {seg_start, seg_end} = Event.day_window(event, date, min_time, max_time)
+  defp event_tier({seg_start, seg_end}, :auto, rem_per_minute) do
     EventItem.tier_for_height(Time.diff(seg_end, seg_start) / 60 * rem_per_minute)
   end
 
-  defp event_tier(_event, _date, forced, _min, _max, _rpm), do: forced
+  defp event_tier(_window, forced, _rpm), do: forced
 end

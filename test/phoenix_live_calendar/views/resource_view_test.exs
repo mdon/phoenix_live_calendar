@@ -177,6 +177,49 @@ defmodule PhoenixLiveCalendar.Views.ResourceViewTest do
       assert html =~ "height: max("
     end
 
+    test "an all-day block sits UNDER timed events and can't intercept them" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+
+      events = [
+        %Event{
+          id: "allday",
+          start: ~D[2026-04-01],
+          end: ~D[2026-04-02],
+          title: "Maintenance day",
+          all_day: true,
+          resource_id: "r1"
+        },
+        %Event{
+          id: "timed",
+          start: ~U[2026-04-01 10:00:00Z],
+          end: ~U[2026-04-01 11:00:00Z],
+          title: "Booking",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events}
+      html = render(~H"<.resource_view date={@date} resources={@resources} events={@events} />")
+
+      doc = Floki.parse_document!(html)
+
+      [allday_wrap] = Floki.find(doc, ~s([id^="cal-event-allday"]))
+      [timed_wrap] = Floki.find(doc, ~s([id^="cal-event-timed"]))
+
+      # wrappers carry the stacking classes
+      wrappers = Floki.find(doc, ".pointer-events-auto")
+
+      classes =
+        Enum.map(wrappers, fn el ->
+          [c] = Floki.attribute([el], "class")
+          c
+        end)
+
+      assert Enum.any?(classes, &(&1 =~ "z-0"))
+      assert Enum.any?(classes, &(&1 =~ "z-10"))
+      assert allday_wrap != nil and timed_wrap != nil
+    end
+
     test "resource_ids (plural) renders the event in every matching column" do
       resources = [
         %Resource{id: "r1", title: "Room A"},
