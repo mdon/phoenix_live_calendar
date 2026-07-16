@@ -13,6 +13,8 @@ defmodule PhoenixLiveCalendar.Widgets do
     illegible miniature time grid.
   - `activity_grid/1` — the GitHub-style contributions strip (weeks ×
     weekdays) over `Heatmap` data.
+  - `activity_month/1` — the same square encoding for ONE month, in
+    calendar orientation (weekday columns, week rows).
   - `mini_timeline/1` — a preset-compressed `Timeline` (fitted window, no
     labels, tiny slots) for a peek at today's sessions.
 
@@ -229,6 +231,83 @@ defmodule PhoenixLiveCalendar.Widgets do
   end
 
   @doc """
+  One month of activity squares in calendar orientation — the
+  `activity_grid/1` encoding at month scale: weekday columns, one row per
+  week, out-of-month days blank, today ringed.
+
+  - `data` — per-day numbers; `palette`/`scale`/`max` as in
+    `PhoenixLiveCalendar.Heatmap.markers/2`
+  - `date` — any date inside the month (default: today)
+  - `show_day_initials` — narrow weekday initials above the columns
+    (default `true`)
+  """
+  attr :data, :any, required: true
+  attr :date, Date, default: nil
+  attr :today, Date, default: nil
+  attr :week_start, :integer, default: 1
+  attr :palette, :any, default: :success
+  attr :scale, :atom, default: :linear
+  attr :max, :any, default: nil
+  attr :cell_class, :string, default: "w-3 h-3 rounded-[3px]"
+  attr :show_day_initials, :boolean, default: true
+  attr :translations, :map, default: %{}
+  attr :class, :string, default: ""
+
+  def activity_month(assigns) do
+    today = assigns.today || Date.utc_today()
+    anchor = assigns.date || today
+    dates = DateHelpers.month_grid(anchor, week_start: assigns.week_start, fixed_weeks: false)
+
+    classes =
+      Heatmap.classes(assigns.data,
+        palette: assigns.palette,
+        scale: assigns.scale,
+        max: assigns.max
+      )
+
+    day_initials = I18n.ordered_day_names_narrow(assigns.week_start, assigns.translations)
+
+    assigns =
+      assigns
+      |> assign(:today, today)
+      |> assign(:anchor, anchor)
+      |> assign(:dates, dates)
+      |> assign(:classes, classes)
+      |> assign(:day_initials, day_initials)
+
+    ~H"""
+    <div
+      class={["cal-widget cal-activity-month grid grid-cols-7 gap-0.5 w-max", @class]}
+      role="img"
+      aria-label="Activity"
+    >
+      <span
+        :for={initial <- @day_initials}
+        :if={@show_day_initials}
+        class="cal-activity-day-initial text-[0.6rem] leading-none text-base-content/50 text-center"
+      >
+        {initial}
+      </span>
+      <span
+        :for={day <- @dates}
+        class={[
+          "cal-activity-cell",
+          @cell_class,
+          not DateHelpers.in_month?(day, @anchor) && "invisible",
+          case Map.get(@classes, day) do
+            %{class: class} -> class
+            nil -> "bg-base-content/8"
+          end,
+          day == @today && "ring-1 ring-primary"
+        ]}
+        title={activity_title(day, Map.get(@classes, day))}
+      >
+      </span>
+    </div>
+    """
+  end
+
+  @doc """
   A preset-compressed `Timeline`: fitted window, no time axis, no bar
   labels (tooltips remain), tiny slots, at most `max_rows` resources.
   """
@@ -237,6 +316,7 @@ defmodule PhoenixLiveCalendar.Widgets do
   attr :resources, :list, required: true
   attr :events, :list, default: []
   attr :max_rows, :integer, default: 3
+  attr :resource_width, :string, default: "6rem"
   attr :today, Date, default: nil
   attr :now, Time, default: nil
   attr :on_event_click, :any, default: nil
@@ -257,7 +337,7 @@ defmodule PhoenixLiveCalendar.Widgets do
       sticky_resource_column={false}
       slot_duration={60}
       slot_width="2rem"
-      resource_width="5rem"
+      resource_width={@resource_width}
       on_event_click={@on_event_click}
       class={"cal-widget cal-mini-timeline #{@class}"}
     />

@@ -200,7 +200,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
           <%!-- Resource label --%>
           <div
             class={[
-              "cal-timeline-resource-label flex-shrink-0 border-r border-base-200 px-2 py-2 flex items-center",
+              "cal-timeline-resource-label flex-shrink-0 min-w-0 overflow-hidden border-r border-base-200 px-2 py-2 flex items-center",
               @sticky_resource_column && "sticky start-0 z-20 bg-base-100"
             ]}
             style={"width: #{PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(@resource_width)}"}
@@ -208,10 +208,10 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
             <%= if @resource_label != [] do %>
               {render_slot(@resource_label, resource)}
             <% else %>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 min-w-0">
                 <div
                   :if={resource.color}
-                  class={["w-2 h-2 rounded-full", resource.color]}
+                  class={["w-2 h-2 rounded-full flex-shrink-0", resource.color]}
                 >
                 </div>
                 <span class="text-sm font-medium truncate">{resource.title}</span>

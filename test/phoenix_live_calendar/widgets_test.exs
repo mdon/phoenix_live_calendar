@@ -149,6 +149,38 @@ defmodule PhoenixLiveCalendar.WidgetsTest do
     end
   end
 
+  describe "activity_month/1" do
+    test "renders one month of squares in calendar orientation" do
+      data = %{~D[2026-04-10] => 30, ~D[2026-04-11] => 90}
+      assigns = %{data: data, date: ~D[2026-04-15], today: ~D[2026-04-16]}
+
+      html =
+        render(~H"<.activity_month data={@data} date={@date} today={@today} max={100} />")
+
+      doc = Floki.parse_document!(html)
+      cells = Floki.find(doc, ".cal-activity-cell")
+
+      # April 2026 with Monday start spans 5 grid weeks
+      assert length(cells) == 35
+      assert html =~ "bg-success/40"
+      assert html =~ "2026-04-10 — 30"
+      # today ringed; out-of-month placeholders invisible but keep alignment
+      assert html =~ "ring-primary"
+      assert html =~ "invisible"
+      # weekday initials header
+      assert html =~ "cal-activity-day-initial"
+    end
+
+    test "show_day_initials={false} drops the header row" do
+      assigns = %{data: %{~D[2026-04-10] => 5}, date: ~D[2026-04-15]}
+
+      html =
+        render(~H"<.activity_month data={@data} date={@date} show_day_initials={false} />")
+
+      refute html =~ "cal-activity-day-initial"
+    end
+  end
+
   describe "mini_timeline/1" do
     test "renders a compressed fitted timeline without axis or labels" do
       resources = [
@@ -178,6 +210,30 @@ defmodule PhoenixLiveCalendar.WidgetsTest do
       assert html =~ ~s(title="Morning read")
       # max_rows caps the resources
       refute html =~ "Overflow"
+    end
+
+    test "resource labels clip inside their column instead of running under bars" do
+      resources = [%Resource{id: "r1", title: "A very long series name indeed"}]
+
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-01 09:00:00Z],
+          end: ~U[2026-04-01 10:00:00Z],
+          title: "Read",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events}
+
+      html = render(~H"<.mini_timeline date={@date} resources={@resources} events={@events} />")
+
+      doc = Floki.parse_document!(html)
+      [cell_class] = doc |> Floki.find(".cal-timeline-resource-label") |> Floki.attribute("class")
+
+      assert cell_class =~ "overflow-hidden"
+      assert cell_class =~ "min-w-0"
     end
   end
 end
