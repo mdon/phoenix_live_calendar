@@ -46,13 +46,16 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   attr :on_click, :any, default: nil
   attr :compact, :boolean, default: false
 
-  attr :detail, :boolean,
-    default: false,
+  attr :content, :atom,
+    default: :inline,
+    values: [:detail, :inline, :title, :none],
     doc: """
-    Stacked multi-line layout for zoomed-in (week/day) blocks: title, then
-    the start–end time range, then the location. The block clips overflow,
-    so short events gracefully degrade to just the title — no height
-    measurement needed. Ignored when `compact` is set.
+    How much of the event to render, chosen by the caller (the time grids
+    compute it from the block's estimated height so text never clips
+    mid-glyph): `:detail` = stacked title / start–end range / location;
+    `:inline` = one line of time + title (the classic layout); `:title` =
+    title only; `:none` = colored block only — the native `title` tooltip
+    and aria-label still identify it.
     """
 
   attr :class, :string, default: ""
@@ -102,6 +105,7 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
       ]}
       role="button"
       tabindex="0"
+      title={@event.title}
       aria-label={event_aria_label(@event, @time_format)}
       phx-click={@on_click}
       phx-value-event-id={@event.id}
@@ -117,8 +121,7 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
       <% else %>
         <.default_event_content
           event={@event}
-          compact={@compact}
-          detail={@detail and not @compact}
+          content={if @compact and @content != :none, do: :title, else: @content}
           time_format={@time_format}
         />
       <% end %>
@@ -127,14 +130,17 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   end
 
   attr :event, PhoenixLiveCalendar.Event, required: true
-  attr :compact, :boolean, default: false
-  attr :detail, :boolean, default: false
+  attr :content, :atom, default: :inline
   attr :time_format, :atom, default: :h24
 
-  # Detail mode: a stacked layout for the taller week/day blocks — title
-  # first (always visible), then the time RANGE, then the location. The
-  # container clips, so a 30-minute block shows just the title line.
-  defp default_event_content(%{detail: true} = assigns) do
+  # :none — the block is just color; the outer div's title/aria identify it.
+  defp default_event_content(%{content: :none} = assigns) do
+    ~H""
+  end
+
+  # :detail — a stacked layout for the taller week/day blocks: title first
+  # (always visible), then the time RANGE, then the location.
+  defp default_event_content(%{content: :detail} = assigns) do
     ~H"""
     <div class="cal-event-content cal-event-detail flex flex-col overflow-hidden text-xs h-full">
       <div class="flex items-center gap-1 min-w-0">
@@ -184,9 +190,9 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
   defp default_event_content(assigns) do
     ~H"""
     <div class="cal-event-content flex items-center gap-1 overflow-hidden text-xs">
-      <%!-- Priority indicator dot (hidden in compact/month view) --%>
+      <%!-- Priority indicator dot (hidden in title-only/month view) --%>
       <span
-        :if={not @compact and @event.priority in [:high, :urgent]}
+        :if={@content == :inline and @event.priority in [:high, :urgent]}
         class={["cal-event-priority w-1.5 h-1.5 rounded-full flex-shrink-0", priority_dot_class(@event)]}
         aria-hidden="true"
       >
@@ -202,7 +208,7 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
 
       <%!-- Time --%>
       <span
-        :if={not @compact and not Event.all_day?(@event) and @event.start}
+        :if={@content == :inline and not Event.all_day?(@event) and @event.start}
         class="cal-event-time font-medium whitespace-nowrap"
       >
         {format_event_time(@event.start, @time_format)}

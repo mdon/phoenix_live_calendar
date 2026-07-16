@@ -29,8 +29,14 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   - `day_markers` — `PhoenixLiveCalendar.DayMarker` structs: label chips
     under the day headers, column background tints (custom marker colors
     win over the type tints and the today tint)
-  - `event_detail` — Stacked event blocks: title, start–end range, location
-    (default: true; blocks clip, so short events show just the title)
+  - `event_content` — `:auto` (default) picks per event block from its
+    estimated height: `:detail` (title / start–end / location) ≥ 3.25rem,
+    `:inline` (time + title) ≥ 1.75rem, `:title` ≥ 1.25rem, `:none` below
+    (color only + tooltip — text never clips mid-glyph). Pass a specific
+    tier to force it for every event
+  - `min_event_height` — CSS floor for a block's rendered height (default
+    `"1.25rem"`, one text line; `"0"` disables) — replaces the old 1.5%
+    floor, which changed size with the visible window
   - `business_hours` — List of `PhoenixLiveCalendar.Availability` for highlighting
   - `on_date_click` — Handler for date header clicks
   - `on_time_click` — Handler for time slot clicks
@@ -69,7 +75,12 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
 
   attr :business_hours, :list, default: []
   attr :day_markers, :list, default: []
-  attr :event_detail, :boolean, default: true
+
+  attr :event_content, :atom,
+    default: :auto,
+    values: [:auto, :detail, :inline, :title, :none]
+
+  attr :min_event_height, :string, default: "1.25rem"
   attr :on_date_click, :any, default: nil
   attr :on_time_click, :any, default: nil
   attr :on_event_click, :any, default: nil
@@ -102,6 +113,12 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     now = assigns.now || Time.utc_now()
     col_count = length(assigns.dates)
 
+    # Estimated rem of block height per event minute — drives the content
+    # ladder (server-side substitute for measuring the block).
+    rem_per_minute =
+      PhoenixLiveCalendar.Utils.Sizing.parse_rem(assigns.slot_height, 3.0) /
+        max(assigns.slot_duration, 1)
+
     markers_by_date =
       PhoenixLiveCalendar.DayMarker.group_by_date(assigns.day_markers, assigns.dates)
 
@@ -123,6 +140,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       |> assign(:now, now)
       |> assign(:col_count, col_count)
       |> assign(:markers_by_date, markers_by_date)
+      |> assign(:rem_per_minute, rem_per_minute)
 
     ~H"""
     <div class={["cal-week-grid flex flex-col", @class]} dir={to_string(@dir)}>
@@ -271,7 +289,16 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                 :for={event <- Map.get(@events_by_date, date, [])}
                 :if={day_window(event, date, @min_time, @max_time)}
                 class="absolute pointer-events-auto z-10"
-                style={event_position_style_with_overlap(event, date, day_layout, @min_time, @max_time)}
+                style={
+                  event_position_style_with_overlap(
+                    event,
+                    date,
+                    day_layout,
+                    @min_time,
+                    @max_time,
+                    @min_event_height
+                  )
+                }
               >
                 <%= if @event != [] do %>
                   {render_slot(@event, event)}
@@ -281,7 +308,9 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                     id_suffix={instance_suffix(@id, Date.to_iso8601(date))}
                     on_click={@on_event_click}
                     time_format={@time_format}
-                    detail={@event_detail}
+                    content={
+                      event_tier(event, date, @event_content, @min_time, @max_time, @rem_per_minute)
+                    }
                     default_color="bg-primary/80"
                     class="h-full text-xs border-l-2 border-primary"
                   />
@@ -408,7 +437,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     if Time.compare(seg_start, seg_end) == :lt, do: {seg_start, seg_end}
   end
 
-  defp event_position_style_with_overlap(event, date, layout_map, min_time, max_time) do
+  defp event_position_style_with_overlap(event, date, layout_map, min_time, max_time, min_height) do
     {start_time, end_time} = day_window(event, date, min_time, max_time)
 
     top = TimeSlots.time_to_percentage(start_time, min_time: min_time, max_time: max_time)
@@ -419,8 +448,33 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     overlap_info = Map.get(layout_map, event.id, %{column: 0, total_columns: 1})
     h_style = OverlapLayout.position_style(overlap_info)
 
-    "top: #{top}%; height: #{max(height, 1.5)}%; #{h_style}"
+    # A rem floor (one text line by default) instead of the old 1.5% floor,
+    # whose real size depended on the window; the top clamp keeps a floored
+    # bottom-edge block inside the track.
+    case PhoenixLiveCalendar.Utils.Safe.sanitize_css_dimension(min_height) do
+      floor when floor in [nil, "0", "0px", "0rem"] ->
+        "top: #{top}%; height: #{height}%; #{h_style}"
+
+      floor ->
+        "top: min(#{top}%, calc(100% - #{floor})); height: max(#{height}%, #{floor}); #{h_style}"
+    end
   end
+
+  # Content tier from the block's estimated height (whole text lines or
+  # nothing — never a mid-glyph clip).
+  defp event_tier(event, date, :auto, min_time, max_time, rem_per_minute) do
+    {seg_start, seg_end} = day_window(event, date, min_time, max_time)
+    h_rem = Time.diff(seg_end, seg_start) / 60 * rem_per_minute
+
+    cond do
+      h_rem >= 3.25 -> :detail
+      h_rem >= 1.75 -> :inline
+      h_rem >= 1.25 -> :title
+      true -> :none
+    end
+  end
+
+  defp event_tier(_event, _date, forced, _min_time, _max_time, _rpm), do: forced
 
   defp slot_business_class(_date, _slot_time, []), do: nil
 

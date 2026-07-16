@@ -237,7 +237,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       assert html =~ "Library"
     end
 
-    test "event_detail={false} restores the single-line layout" do
+    test "event_content={:inline} forces the single-line layout" do
       events = [
         %Event{
           id: "1",
@@ -249,11 +249,62 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       ]
 
       assigns = %{dates: [~D[2026-04-08]], events: events}
-      html = render(~H"<.week_grid dates={@dates} events={@events} event_detail={false} />")
+      html = render(~H"<.week_grid dates={@dates} events={@events} event_content={:inline} />")
 
       refute html =~ "cal-event-detail"
       refute html =~ "Library"
       assert html =~ "Reading session"
+    end
+
+    test ":auto degrades short events to whole tiers, never clipped text" do
+      events = [
+        # 90 min @ 3rem/30min = 9rem -> full detail stack
+        %Event{
+          id: "tall",
+          start: ~U[2026-04-08 10:00:00Z],
+          end: ~U[2026-04-08 11:30:00Z],
+          title: "Tall",
+          location: "Loc A"
+        },
+        # 20 min -> 2rem -> :inline (time + title, no location line)
+        %Event{
+          id: "mid",
+          start: ~U[2026-04-08 13:00:00Z],
+          end: ~U[2026-04-08 13:20:00Z],
+          title: "Mid",
+          location: "Loc B"
+        },
+        # 7 min -> 0.7rem -> :none (color strip only; tooltip carries the title)
+        %Event{
+          id: "sliver",
+          start: ~U[2026-04-08 15:00:00Z],
+          end: ~U[2026-04-08 15:07:00Z],
+          title: "Sliver",
+          location: "Loc C"
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-08]], events: events}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+
+      doc = Floki.parse_document!(html)
+
+      assert html =~ "Loc A"
+      refute html =~ "Loc B"
+      assert html =~ "Mid"
+
+      # the sliver renders no text node at all — only the tooltip/aria
+      sliver_text =
+        doc |> Floki.find(~s([id^="cal-event-sliver"])) |> Floki.text() |> String.trim()
+
+      assert sliver_text == ""
+      [tooltip] = doc |> Floki.find(~s([id^="cal-event-sliver"])) |> Floki.attribute("title")
+      assert tooltip == "Sliver"
+
+      # and block heights are floored in rem (one text line), not the old
+      # window-relative percentage
+      assert html =~ "height: max("
+      assert html =~ "1.25rem"
     end
   end
 
@@ -320,10 +371,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
         |> Floki.find("[data-date] .cal-event")
 
       assert length(blocks) == 2
-      # Saturday segment starts at 21:30 of a 24h axis (~89.58%)
-      assert html =~ "top: 89.58"
+      # Saturday segment starts at 21:30 of a 24h axis (~89.58%); the top is
+      # clamped so the min-height floor can't push the block past the track
+      assert html =~ "top: min(89.58"
       # Sunday segment starts at the very top
-      assert html =~ "top: 0.0%"
+      assert html =~ "top: min(0.0%"
     end
 
     test "the off-window part of a midnight-crosser is dropped, not floored" do

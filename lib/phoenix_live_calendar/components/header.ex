@@ -40,6 +40,18 @@ defmodule PhoenixLiveCalendar.Components.Header do
   attr :on_view_change, :any, default: nil
   attr :today_visible, :boolean, default: false
   attr :show_today_button, :any, default: :auto
+
+  attr :layout, :atom,
+    default: :auto,
+    doc: """
+    `:centered` — the classic three-zone toolbar (today | ‹ title › | views).
+    `:start` — a single start-aligned row.
+    `:auto` (default) — centered while any wing has content; when BOTH wings
+    are empty (today hidden, no view switcher, no info/slots) the grid would
+    render as a barren bar with a lone centered title, so it collapses to
+    the start-aligned row instead.
+    """
+
   attr :translations, :map, default: %{}
   attr :class, :string, default: ""
   attr :dir, :atom, default: :ltr
@@ -60,19 +72,36 @@ defmodule PhoenixLiveCalendar.Components.Header do
         false -> false
       end
 
-    assigns = assign(assigns, :show_today, show_today)
+    left_wing? = assigns.help != [] or assigns.toolbar_start != [] or show_today
+
+    right_wing? =
+      assigns.toolbar_end != [] or
+        (assigns.on_view_change != nil and length(assigns.views) > 1)
+
+    start_layout? =
+      assigns.layout == :start or
+        (assigns.layout == :auto and not left_wing? and not right_wing?)
+
+    assigns =
+      assigns
+      |> assign(:show_today, show_today)
+      |> assign(:start_layout?, start_layout?)
 
     ~H"""
     <div
       class={[
-        "cal-header grid grid-cols-[1fr_auto_1fr] items-center max-sm:gap-1 px-2 py-1.5 sm:px-3 sm:py-2",
+        "cal-header items-center max-sm:gap-1 px-2 py-1.5 sm:px-3 sm:py-2 min-h-11",
+        if(@start_layout?,
+          do: "cal-header-start flex gap-1",
+          else: "grid grid-cols-[1fr_auto_1fr]"
+        ),
         @class
       ]}
       role="toolbar"
       aria-label={I18n.label(:go_to_today, @translations)}
     >
       <%!-- Left: info disclosure + today button + custom slot --%>
-      <div class="flex items-center gap-2 justify-self-start">
+      <div :if={not @start_layout?} class="flex items-center gap-2 justify-self-start">
         <%!-- Info (ⓘ) disclosure: a no-JS <details> popover whose body is the
              consumer's `:help` slot (e.g. a key for the calendar's markings).
              Sits in the top-left corner. Inline SVG so the lib carries no
@@ -115,8 +144,8 @@ defmodule PhoenixLiveCalendar.Components.Header do
         </button>
       </div>
 
-      <%!-- Center: ‹ Title › (always centered) --%>
-      <div class="flex items-center gap-1 justify-self-center">
+      <%!-- Center: ‹ Title › (start-aligned when both wings are empty) --%>
+      <div class={["flex items-center gap-1", not @start_layout? && "justify-self-center"]}>
         <button
           type="button"
           class="cal-nav-prev btn btn-sm btn-ghost btn-circle"
@@ -129,7 +158,10 @@ defmodule PhoenixLiveCalendar.Components.Header do
         </button>
 
         <h2
-          class="cal-title text-sm sm:text-base font-semibold min-w-0 sm:min-w-32 max-w-[55vw] sm:max-w-none truncate text-center select-none"
+          class={[
+            "cal-title text-sm sm:text-base font-semibold min-w-0 sm:min-w-32 max-w-[55vw] sm:max-w-none truncate select-none",
+            if(@start_layout?, do: "text-start", else: "text-center")
+          ]}
           aria-live="polite"
         >
           {@title}
@@ -148,7 +180,7 @@ defmodule PhoenixLiveCalendar.Components.Header do
       </div>
 
       <%!-- Right: view switcher + custom slot --%>
-      <div class="flex items-center gap-1 justify-self-end">
+      <div :if={not @start_layout?} class="flex items-center gap-1 justify-self-end">
         <div
           :if={@on_view_change && length(@views) > 1}
           class="btn-group flex items-center gap-0.5"

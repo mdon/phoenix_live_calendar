@@ -464,7 +464,7 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert render_html(:week, %{events: [event]}) =~ "cal-event-1-cal-week-"
     end
 
-    test "event_detail: false threads through to the week grid" do
+    test "event_content threads through to the week grid" do
       event = %PhoenixLiveCalendar.Event{
         id: "1",
         start: ~U[2026-06-15 10:00:00Z],
@@ -473,7 +473,7 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       }
 
       assert render_html(:week, %{events: [event]}) =~ "cal-event-detail"
-      refute render_html(:week, %{events: [event], event_detail: false}) =~ "cal-event-detail"
+      refute render_html(:week, %{events: [event], event_content: :inline}) =~ "cal-event-detail"
     end
   end
 

@@ -201,6 +201,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     >
       <Header.header
         :if={assigns[:show_header] != false}
+        layout={assigns[:header_layout] || :auto}
         title={@title}
         view={@internal_view}
         views={assigns[:views] || [:month, :week, :day]}
@@ -298,7 +299,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           marker_ticker_interval={assigns[:marker_ticker_interval] || 3000}
           slot_width={assigns[:slot_width] || "5rem"}
           resource_width={assigns[:resource_width] || "12rem"}
-          event_detail={assigns[:event_detail] != false}
+          event_content={assigns[:event_content] || :auto}
           filter_to_date={assigns[:filter_to_date] != false}
           clamp_to_date={assigns[:clamp_to_date] != false}
           sticky_resource_column={assigns[:sticky_resource_column] != false}
@@ -364,7 +365,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :marker_ticker_interval, :integer, default: 3000
   attr :slot_width, :string, default: "5rem"
   attr :resource_width, :string, default: "12rem"
-  attr :event_detail, :boolean, default: true
+  attr :event_content, :atom, default: :auto
   attr :filter_to_date, :boolean, default: true
   attr :clamp_to_date, :boolean, default: true
   attr :sticky_resource_column, :boolean, default: true
@@ -431,7 +432,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       show_all_day_row={@show_all_day_row}
       business_hours={@business_hours}
       day_markers={@day_markers}
-      event_detail={@event_detail}
+      event_content={@event_content}
       on_date_click={Phoenix.LiveView.JS.push("lc_date_click", target: @myself)}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
@@ -462,7 +463,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       show_all_day_row={@show_all_day_row}
       business_hours={@business_hours}
       day_markers={@day_markers}
-      event_detail={@event_detail}
+      event_content={@event_content}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       translations={@translations}
@@ -493,7 +494,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       show_all_day_row={@show_all_day_row}
       business_hours={@business_hours}
       day_markers={@day_markers}
-      event_detail={@event_detail}
+      event_content={@event_content}
       on_time_click={Phoenix.LiveView.JS.push("lc_time_click", target: @myself)}
       on_event_click={Phoenix.LiveView.JS.push("lc_event_click", target: @myself)}
       translations={@translations}

@@ -35,7 +35,8 @@ defmodule PhoenixLiveCalendar.Views.NDayView do
   attr :show_all_day_row, :boolean, default: true
   attr :business_hours, :list, default: []
   attr :day_markers, :list, default: []
-  attr :event_detail, :boolean, default: true
+  attr :event_content, :atom, default: :auto
+  attr :min_event_height, :string, default: "1.25rem"
   attr :on_date_click, :any, default: nil
   attr :on_time_click, :any, default: nil
   attr :on_event_click, :any, default: nil
@@ -67,7 +68,8 @@ defmodule PhoenixLiveCalendar.Views.NDayView do
       show_all_day_row={@show_all_day_row}
       business_hours={@business_hours}
       day_markers={@day_markers}
-      event_detail={@event_detail}
+      event_content={@event_content}
+      min_event_height={@min_event_height}
       on_date_click={@on_date_click}
       on_time_click={@on_time_click}
       on_event_click={@on_event_click}
