@@ -232,6 +232,7 @@ defmodule PhoenixLiveCalendar.Widgets do
   A preset-compressed `Timeline`: fitted window, no time axis, no bar
   labels (tooltips remain), tiny slots, at most `max_rows` resources.
   """
+  attr :id, :string, default: "mini-timeline"
   attr :date, Date, required: true
   attr :resources, :list, required: true
   attr :events, :list, default: []
@@ -244,7 +245,7 @@ defmodule PhoenixLiveCalendar.Widgets do
   def mini_timeline(assigns) do
     ~H"""
     <Timeline.timeline
-      id="mini-timeline"
+      id={@id}
       date={@date}
       resources={Enum.take(@resources, @max_rows)}
       events={@events}
