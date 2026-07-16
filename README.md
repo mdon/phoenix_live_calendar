@@ -36,10 +36,11 @@ richer interaction; never depend on them for the page to look right.
 - **Optional Ecto**: Opt-in persistence with Oban-style versioned migrations
 - **Dashboard-ready**: All components work at any container size
 
-> **View maturity:** All eight views render server-side and work today. **Month**
-> is the most polished and the view tuned for small screens; the others are
-> functional but less refined — in particular the time-grid views (week / day /
-> N-day) are not yet optimised for phone widths.
+> **View maturity:** All eight views render server-side and work today.
+> **Month, week and day** are the polished, phone-tuned views (the time grids
+> gained day markers, dense all-day lanes, detail event blocks and responsive
+> columns in 0.3); year, agenda, timeline and resource are functional but less
+> refined.
 
 ## Installation
 
