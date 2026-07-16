@@ -1,0 +1,183 @@
+defmodule PhoenixLiveCalendar.WidgetsTest do
+  use ExUnit.Case, async: true
+
+  import Phoenix.LiveViewTest, only: [rendered_to_string: 1]
+  import Phoenix.Component, only: [sigil_H: 2]
+  import PhoenixLiveCalendar.Widgets
+
+  alias PhoenixLiveCalendar.{Event, Resource}
+
+  defp render(content), do: rendered_to_string(content)
+
+  describe "next_events/1" do
+    defp pool(now) do
+      today = DateTime.to_date(now)
+
+      [
+        %Event{
+          id: "past",
+          start: DateTime.add(now, -3, :hour),
+          end: DateTime.add(now, -2, :hour),
+          title: "Already over"
+        },
+        %Event{
+          id: "soon",
+          start: DateTime.add(now, 2, :hour),
+          end: DateTime.add(now, 3, :hour),
+          title: "Soon",
+          color: :accent
+        },
+        %Event{
+          id: "this-week",
+          start: Date.add(today, 3),
+          title: "Trip",
+          all_day: true
+        },
+        %Event{
+          id: "next-week",
+          start: DateTime.add(now, 10 * 24, :hour),
+          title: "Review"
+        },
+        %Event{
+          id: "far",
+          start: DateTime.add(now, 40 * 24, :hour),
+          title: "Beyond horizon"
+        }
+      ]
+    end
+
+    test "lists the next events soonest first, dropping ended and out-of-horizon ones" do
+      now = ~U[2026-04-01 12:00:00Z]
+      assigns = %{events: pool(now), now: now}
+
+      html = render(~H"<.next_events events={@events} now={@now} limit={5} />")
+
+      assert html =~ "Soon"
+      assert html =~ "Trip"
+      assert html =~ "Review"
+      refute html =~ "Already over"
+      refute html =~ "Beyond horizon"
+
+      # soonest first
+      assert :binary.match(html, "Soon") |> elem(0) < :binary.match(html, "Trip") |> elem(0)
+    end
+
+    test "limit caps the list; when-labels grade time/weekday/date" do
+      now = ~U[2026-04-01 12:00:00Z]
+      assigns = %{events: pool(now), now: now}
+
+      html = render(~H"<.next_events events={@events} now={@now} limit={2} />")
+
+      refute html =~ "Review"
+      # today's event -> a time; this week's -> a weekday name
+      assert html =~ "14:00"
+      assert html =~ "Sat"
+    end
+
+    test "empty pool renders the no-events state, token colors resolve to dots" do
+      now = ~U[2026-04-01 12:00:00Z]
+      assigns = %{events: [], now: now, pool: pool(now)}
+
+      assert render(~H"<.next_events events={@events} now={@now} />") =~ "No events"
+      assert render(~H"<.next_events events={@pool} now={@now} />") =~ "bg-accent"
+    end
+  end
+
+  describe "week_strip/1" do
+    test "renders seven day cells with dots and a today pill" do
+      today = ~D[2026-04-01]
+
+      events = [
+        %Event{id: "1", start: ~D[2026-04-01], title: "A", all_day: true, color: :info},
+        %Event{id: "2", start: ~U[2026-04-03 10:00:00Z], title: "B"}
+      ]
+
+      assigns = %{today: today, events: events}
+
+      html = render(~H"<.week_strip date={@today} today={@today} events={@events} />")
+
+      doc = Floki.parse_document!(html)
+      assert length(Floki.find(doc, ".cal-week-strip-day")) == 7
+      assert html =~ "bg-primary text-primary-content"
+      assert html =~ "bg-info"
+    end
+
+    test "more than three events collapses to a +N count" do
+      today = ~D[2026-04-01]
+
+      events =
+        for i <- 1..5 do
+          %Event{id: "#{i}", start: ~D[2026-04-01], title: "E#{i}", all_day: true}
+        end
+
+      assigns = %{today: today, events: events}
+      html = render(~H"<.week_strip date={@today} today={@today} events={@events} />")
+
+      assert html =~ "+5"
+    end
+  end
+
+  describe "activity_grid/1" do
+    test "renders weeks x 7 intensity squares with tooltips" do
+      to = ~D[2026-04-05]
+
+      data = %{
+        ~D[2026-04-01] => 10,
+        ~D[2026-03-15] => 100
+      }
+
+      assigns = %{data: data, to: to}
+
+      html = render(~H"<.activity_grid data={@data} to={@to} weeks={4} />")
+
+      doc = Floki.parse_document!(html)
+      cells = Floki.find(doc, ".cal-activity-cell")
+      assert length(cells) == 28
+
+      assert html =~ "bg-success"
+      assert html =~ "2026-04-01 — 10"
+      # inactive days get the neutral base cell
+      assert html =~ "bg-base-content/8"
+    end
+
+    test "palette presets apply" do
+      assigns = %{data: %{~D[2026-04-01] => 5}, to: ~D[2026-04-05]}
+
+      html = render(~H"<.activity_grid data={@data} to={@to} weeks={2} palette={:heat} />")
+
+      assert html =~ "bg-error"
+    end
+  end
+
+  describe "mini_timeline/1" do
+    test "renders a compressed fitted timeline without axis or labels" do
+      resources = [
+        %Resource{id: "r1", title: "One Piece"},
+        %Resource{id: "r2", title: "Berserk"},
+        %Resource{id: "r3", title: "Frieren"},
+        %Resource{id: "r4", title: "Overflow"}
+      ]
+
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-01 09:00:00Z],
+          end: ~U[2026-04-01 10:30:00Z],
+          title: "Morning read",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events}
+
+      html = render(~H"<.mini_timeline date={@date} resources={@resources} events={@events} />")
+
+      assert html =~ "cal-mini-timeline"
+      refute html =~ "cal-timeline-time-header"
+      refute html =~ "cal-event-content"
+      assert html =~ ~s(title="Morning read")
+      # max_rows caps the resources
+      refute html =~ "Overflow"
+    end
+  end
+end

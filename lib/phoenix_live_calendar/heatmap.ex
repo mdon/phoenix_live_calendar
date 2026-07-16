@@ -18,9 +18,15 @@ defmodule PhoenixLiveCalendar.Heatmap do
 
   ## Options
 
-  - `:palette` — intensity classes, low → high (default: 5 `bg-success`
-    opacity steps). Classes must be COMPLETE Tailwind class names the host
-    app already uses or safelists — interpolated names get purged
+  - `:palette` — intensity classes low → high, either a list or a preset:
+    `:success` (default, green ramp), `:heat` (warning → error),
+    `:cool` (info ramp), `:mono` (base-content greys). Custom classes must
+    be COMPLETE Tailwind class names the host app already uses or safelists
+    — interpolated names get purged
+  - `:style` — `:fill` (default): the class becomes the marker `color`, so
+    the whole cell tints. `:dot`: the cell keeps its normal background and
+    the views render a small intensity dot instead — much quieter next to
+    event content
   - `:scale` — `:linear` (bucket by `value / max`, default) or `:quantile`
     (bucket by rank, so outliers don't wash out the rest)
   - `:max` — explicit ceiling for the linear scale (default: the data's max)
@@ -44,9 +50,33 @@ defmodule PhoenixLiveCalendar.Heatmap do
     "bg-success"
   ]
 
+  @palettes %{
+    success: @default_palette,
+    heat: ["bg-warning/25", "bg-warning/50", "bg-warning/80", "bg-error/70", "bg-error"],
+    cool: ["bg-info/20", "bg-info/40", "bg-info/60", "bg-info/80", "bg-info"],
+    mono: [
+      "bg-base-content/10",
+      "bg-base-content/20",
+      "bg-base-content/30",
+      "bg-base-content/40",
+      "bg-base-content/50"
+    ]
+  }
+
   @doc "The default 5-step intensity palette."
   @spec default_palette() :: [String.t()]
   def default_palette, do: @default_palette
+
+  @doc "A preset palette's class list (`:success` / `:heat` / `:cool` / `:mono`)."
+  @spec palette(atom() | [String.t()]) :: [String.t()]
+  def palette(classes) when is_list(classes), do: classes
+
+  def palette(name) when is_map_key(@palettes, name), do: @palettes[name]
+
+  def palette(other) do
+    raise ArgumentError,
+          ":palette must be a class list or one of #{inspect(Map.keys(@palettes))}, got: #{inspect(other)}"
+  end
 
   @doc """
   Builds one heatmap `DayMarker` per active day from `Date => value` data.
@@ -56,36 +86,56 @@ defmodule PhoenixLiveCalendar.Heatmap do
   """
   @spec markers(%{optional(Date.t()) => number()} | Enumerable.t(), keyword()) :: [DayMarker.t()]
   def markers(data, opts \\ []) do
-    palette = Keyword.get(opts, :palette, @default_palette)
-
-    if palette == [] do
-      raise ArgumentError, ":palette must not be empty"
-    end
-
     label = Keyword.get(opts, :label, &default_label/1)
     show_label = Keyword.get(opts, :show_label, false)
     id_prefix = Keyword.get(opts, :id_prefix, "heatmap")
+    style = Keyword.get(opts, :style, :fill)
 
-    pairs =
-      data
-      |> Enum.filter(fn
-        {%Date{}, value} -> is_number(value) and value > 0
-        _other -> false
-      end)
-      |> Enum.sort_by(fn {date, _} -> date end, Date)
+    unless style in [:fill, :dot] do
+      raise ArgumentError, ":style must be :fill or :dot, got: #{inspect(style)}"
+    end
 
-    bucket = bucket_fn(pairs, length(palette), Keyword.get(opts, :scale, :linear), opts)
-
-    Enum.map(pairs, fn {date, value} ->
+    data
+    |> classes(opts)
+    |> Enum.sort_by(fn {date, _} -> date end, Date)
+    |> Enum.map(fn {date, %{class: class, value: value}} ->
       %DayMarker{
         id: "#{id_prefix}-#{Date.to_iso8601(date)}",
         label: label && label.(value),
         start_date: date,
         type: :custom,
-        color: Enum.at(palette, bucket.(value)),
+        color: if(style == :fill, do: class),
         show_label: show_label,
-        extra: %{value: value}
+        extra: %{value: value, heatmap: %{style: style, class: class, value: value}}
       }
+    end)
+  end
+
+  @doc """
+  The raw bucketing: `Date => value` data to
+  `%{Date => %{class: intensity_class, value: value}}` — for building custom
+  heatmap renderings (the `Widgets.activity_grid/1` year strip uses it).
+  Same options as `markers/2` (`:palette`, `:scale`, `:max`).
+  """
+  @spec classes(%{optional(Date.t()) => number()} | Enumerable.t(), keyword()) ::
+          %{optional(Date.t()) => %{class: String.t(), value: number()}}
+  def classes(data, opts \\ []) do
+    palette = palette(Keyword.get(opts, :palette, @default_palette))
+
+    if palette == [] do
+      raise ArgumentError, ":palette must not be empty"
+    end
+
+    pairs =
+      Enum.filter(data, fn
+        {%Date{}, value} -> is_number(value) and value > 0
+        _other -> false
+      end)
+
+    bucket = bucket_fn(pairs, length(palette), Keyword.get(opts, :scale, :linear), opts)
+
+    Map.new(pairs, fn {date, value} ->
+      {date, %{class: Enum.at(palette, bucket.(value)), value: value}}
     end)
   end
 

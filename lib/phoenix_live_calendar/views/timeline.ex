@@ -96,6 +96,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   attr :filter_to_date, :boolean, default: true
   attr :clamp_to_date, :boolean, default: true
   attr :sticky_resource_column, :boolean, default: true
+  attr :show_time_axis, :boolean, default: true
   attr :show_now_indicator, :boolean, default: true
   attr :today, Date, default: nil
   attr :now, Time, default: nil
@@ -168,7 +169,10 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
         <%!-- Time header. z-30: the header band must paint over the sticky
              row labels (z-20) and event bars (z-10) when rows scroll under
              it vertically — its own children's z-values are scoped inside. --%>
-        <div class="cal-timeline-header flex border-b border-base-200 sticky top-0 bg-base-100 z-30">
+        <div
+          :if={@show_time_axis}
+          class="cal-timeline-header flex border-b border-base-200 sticky top-0 bg-base-100 z-30"
+        >
           <div
             class={[
               "cal-timeline-resource-header flex-shrink-0 border-r border-base-200 px-2 py-2 font-medium text-sm",

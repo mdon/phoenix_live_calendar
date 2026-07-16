@@ -239,6 +239,21 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
               />
             </div>
 
+            <%!-- Quiet heatmap variant: an intensity dot instead of the
+                 whole-cell tint (Heatmap style: :dot) --%>
+            <% dot = marker_dot(Map.get(@markers_by_date, day, [])) %>
+            <div :if={dot}>
+              <span
+                class={[
+                  "cal-heat-dot absolute bottom-1 inset-inline-start-1 w-1.5 h-1.5 rounded-full pointer-events-none",
+                  dot.class
+                ]}
+                title={dot.title}
+                aria-hidden="true"
+              >
+              </span>
+            </div>
+
             <%!-- All events: multi-day first, then single-day. Multi-day bars
                  may be capped (@max_multiday); capped-off bars + single-day
                  overflow both feed the day's "+N more" link. --%>
@@ -697,6 +712,16 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   # First custom cell color among the day's markers, if any.
   defp marker_custom_color(markers), do: PhoenixLiveCalendar.DayMarker.custom_color(markers)
+
+  # First :dot-style heatmap marker for the day, if any.
+  defp marker_dot(markers) do
+    Enum.find_value(markers, fn marker ->
+      case marker.extra do
+        %{heatmap: %{style: :dot, class: class}} -> %{class: class, title: marker.label}
+        _ -> nil
+      end
+    end)
+  end
 
   # Semantic hook class for the day's markers (no bg utility).
   defp marker_semantic_class(markers), do: PhoenixLiveCalendar.DayMarker.semantic_class(markers)

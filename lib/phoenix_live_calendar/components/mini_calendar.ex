@@ -109,6 +109,20 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
               </span>
 
               <div
+                :if={mini_dot(Map.get(@markers_by_date, date, []))}
+                class="flex justify-center -mt-0.5"
+              >
+                <span
+                  class={[
+                    "cal-heat-dot w-1 h-1 rounded-full",
+                    mini_dot(Map.get(@markers_by_date, date, []))
+                  ]}
+                  aria-hidden="true"
+                >
+                </span>
+              </div>
+
+              <div
                 :if={Map.get(@events_by_date, date, []) != []}
                 class="flex justify-center gap-0.5 -mt-0.5"
               >
@@ -124,6 +138,16 @@ defmodule PhoenixLiveCalendar.Components.MiniCalendar do
       </table>
     </div>
     """
+  end
+
+  # First :dot-style heatmap class for the date, if any.
+  defp mini_dot(markers) do
+    Enum.find_value(markers, fn marker ->
+      case marker.extra do
+        %{heatmap: %{style: :dot, class: class}} -> class
+        _ -> nil
+      end
+    end)
   end
 
   # First custom marker color for the date, plus a hook class. Type-based
