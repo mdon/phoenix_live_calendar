@@ -504,4 +504,116 @@ defmodule PhoenixLiveCalendar.Views.TimelineTest do
       assert html =~ ~s(id="cal-event-1-fitted-r1")
     end
   end
+
+  describe "bar labels (label_position)" do
+    defp narrow_session do
+      %Event{
+        id: "n1",
+        start: ~U[2026-04-01 10:00:00Z],
+        end: ~U[2026-04-01 10:03:00Z],
+        title: "Chapter twelve",
+        resource_id: "r1"
+      }
+    end
+
+    test ":fit keeps the label inside a wide bar" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-01 09:00:00Z],
+          end: ~U[2026-04-01 12:00:00Z],
+          title: "Long morning session",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events}
+      html = render(~H"<.timeline date={@date} resources={@resources} events={@events} />")
+
+      assert html =~ "cal-event-content"
+      assert html =~ "Long morning session"
+      refute html =~ "cal-timeline-bar-label"
+    end
+
+    test ":fit moves a too-narrow bar's label OUTSIDE the bar" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: [narrow_session()]}
+
+      html = render(~H"<.timeline date={@date} resources={@resources} events={@events} />")
+
+      doc = Floki.parse_document!(html)
+
+      # the bar itself carries no text — tooltip + aria only
+      [bar_title] = doc |> Floki.find(~s([id^="cal-event-n1"])) |> Floki.attribute("title")
+      assert bar_title == "Chapter twelve"
+      assert doc |> Floki.find(~s([id^="cal-event-n1"])) |> Floki.text() |> String.trim() == ""
+
+      # the label renders beside it
+      [label] = Floki.find(doc, ".cal-timeline-bar-label")
+      assert Floki.text(label) =~ "Chapter twelve"
+    end
+
+    test "label_fit_fallback={:none} suppresses instead" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: [narrow_session()]}
+
+      html =
+        render(
+          ~H"<.timeline date={@date} resources={@resources} events={@events} label_fit_fallback={:none} />"
+        )
+
+      refute html =~ "cal-timeline-bar-label"
+    end
+
+    test "an outside label at the track edge flips before the bar" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+
+      events = [
+        %Event{
+          id: "edge",
+          start: ~U[2026-04-01 23:40:00Z],
+          end: ~U[2026-04-01 23:45:00Z],
+          title: "Nightcap chapter",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events}
+      html = render(~H"<.timeline date={@date} resources={@resources} events={@events} />")
+
+      doc = Floki.parse_document!(html)
+      [style] = doc |> Floki.find(".cal-timeline-bar-label") |> Floki.attribute("style")
+
+      # placed before the ~98% bar, not spilling past 100%
+      [_, at] = Regex.run(~r/inset-inline-start: ([\d.]+)%/, style)
+      assert String.to_float(at) < 95.0
+    end
+
+    test "label_position={:none} renders tooltip-only bars" do
+      resources = [%Resource{id: "r1", title: "Room A"}]
+
+      events = [
+        %Event{
+          id: "1",
+          start: ~U[2026-04-01 09:00:00Z],
+          end: ~U[2026-04-01 12:00:00Z],
+          title: "Long morning session",
+          resource_id: "r1"
+        }
+      ]
+
+      assigns = %{date: ~D[2026-04-01], resources: resources, events: events}
+
+      html =
+        render(
+          ~H"<.timeline date={@date} resources={@resources} events={@events} label_position={:none} />"
+        )
+
+      refute html =~ "cal-timeline-bar-label"
+      refute html =~ "cal-event-content"
+      assert html =~ ~s(title="Long morning session")
+    end
+  end
 end

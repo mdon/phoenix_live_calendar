@@ -14,6 +14,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
 
   alias PhoenixLiveCalendar.Components.EventItem
   alias PhoenixLiveCalendar.Event
+  alias PhoenixLiveCalendar.Utils
   alias PhoenixLiveCalendar.Utils.{I18n, TimeSlots}
 
   @day_start ~T[00:00:00]
@@ -54,6 +55,16 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     latest end ceiled to the hour (default: `false`). Falls back to
     `min_time`/`max_time` when no timed events render or when the computed
     window would be empty/inverted
+  - `label_position` — where bar labels go: `:fit` (default) renders the
+    label inside the bar when the server-side estimate says it fits, else
+    falls back per `label_fit_fallback`; `:inside` always in-bar (truncated);
+    `:outside` always beside the bar; `:none` no labels (tooltip + aria
+    still identify every bar)
+  - `label_fit_ratio` — how much of the estimated label must fit for
+    `:fit` to choose inside (default `0.75`)
+  - `label_fit_fallback` — `:outside` (default) or `:none`; outside labels
+    place after the bar, flip before it at the track edge, and suppress
+    themselves rather than overprint a neighbouring bar or label
   - `on_event_click` — Handler for event clicks
   - `on_slot_click` — Handler for time slot clicks
   - `translations` — Translation overrides
@@ -89,6 +100,9 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   attr :today, Date, default: nil
   attr :now, Time, default: nil
   attr :fit_to_events, :boolean, default: false
+  attr :label_position, :atom, default: :fit, values: [:none, :inside, :outside, :fit]
+  attr :label_fit_ratio, :float, default: 0.75
+  attr :label_fit_fallback, :atom, default: :outside, values: [:outside, :none]
   attr :on_event_click, :any, default: nil
   attr :on_slot_click, :any, default: nil
   attr :translations, :map, default: %{}
@@ -117,10 +131,15 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
         slot_duration: assigns.slot_duration
       )
 
-    # Group events by resource
-    events_by_resource =
-      Enum.group_by(events, fn event ->
-        event.resource_id
+    # Group events by resource, then lay each row's bars + labels out
+    track_rem =
+      max(Utils.Sizing.parse_rem(assigns.slot_width, 5.0) * max(length(slots), 1), 1.0)
+
+    bars_by_resource =
+      events
+      |> Enum.group_by(fn event -> event.resource_id end)
+      |> Map.new(fn {resource_id, row_events} ->
+        {resource_id, row_bars(row_events, assigns, min_time, max_time, track_rem)}
       end)
 
     today = assigns.today || Date.utc_today()
@@ -138,7 +157,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     assigns =
       assigns
       |> assign(:slots, slots)
-      |> assign(:events_by_resource, events_by_resource)
+      |> assign(:bars_by_resource, bars_by_resource)
       |> assign(:min_time, min_time)
       |> assign(:max_time, max_time)
       |> assign(:now_pct, now_pct)
@@ -223,15 +242,16 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
             <%!-- Positioned events for this resource --%>
             <div class="absolute inset-0 pointer-events-none py-0.5">
               <div
-                :for={event <- Map.get(@events_by_resource, resource.id, [])}
+                :for={bar <- Map.get(@bars_by_resource, resource.id, [])}
                 class="absolute top-0.5 bottom-0.5 pointer-events-auto z-10"
-                style={timeline_event_style(event, @date, @min_time, @max_time, @clamp_to_date)}
+                style={bar.style}
               >
                 <%= if @event != [] do %>
-                  {render_slot(@event, event)}
+                  {render_slot(@event, bar.event)}
                 <% else %>
                   <EventItem.event_item
-                    event={event}
+                    event={bar.event}
+                    content={bar.content}
                     id_suffix={instance_suffix(@id, resource.id)}
                     on_click={@on_event_click}
                     default_color="bg-primary/80"
@@ -239,6 +259,16 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
                   />
                 <% end %>
               </div>
+              <%!-- Outside labels: beside bars too narrow for their text —
+                   suppressed (tooltip only) rather than overprinting --%>
+              <span
+                :for={bar <- Map.get(@bars_by_resource, resource.id, [])}
+                :if={@event == [] and bar.label != nil}
+                class="cal-timeline-bar-label absolute top-1/2 -translate-y-1/2 text-xs text-base-content/70 whitespace-nowrap overflow-hidden text-ellipsis pointer-events-none"
+                style={"inset-inline-start: #{bar.label.at}%; max-width: #{bar.label.max_w}%"}
+              >
+                {bar.label.text}
+              </span>
             </div>
           </div>
         </div>
@@ -250,7 +280,96 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
   defp instance_suffix(nil, key), do: key
   defp instance_suffix(id, key), do: "#{id}-#{key}"
 
-  defp timeline_event_style(event, date, min_time, max_time, clamp) do
+  # Lay out one resource row: bar geometry, per-bar content tier, and
+  # outside-label placement with a greedy no-overprint guard.
+  defp row_bars(row_events, assigns, min_time, max_time, track_rem) do
+    placed =
+      row_events
+      |> Enum.map(fn event ->
+        {start_pct, width} =
+          bar_geometry(event, assigns.date, min_time, max_time, assigns.clamp_to_date)
+
+        %{event: event, start: start_pct, width: width}
+      end)
+      |> Enum.sort_by(& &1.start)
+
+    bar_spans = Enum.map(placed, fn bar -> {bar.start, bar.start + bar.width} end)
+
+    {bars, _label_spans} =
+      Enum.map_reduce(placed, [], fn bar, label_spans ->
+        decide_label(bar, assigns, track_rem, bar_spans, label_spans)
+      end)
+
+    bars
+  end
+
+  defp decide_label(bar, assigns, track_rem, bar_spans, label_spans) do
+    bar_rem = bar.width / 100 * track_rem
+    style = "inset-inline-start: #{bar.start}%; width: #{bar.width}%"
+    title = bar.event.title || ""
+
+    # the inside content is "HH:MM Title" — ~6 extra characters
+    inside_rem = Utils.Sizing.label_rem(title) + 6 * 0.45
+    inside_fits? = bar_rem >= inside_rem * assigns.label_fit_ratio and bar_rem >= 2.0
+
+    mode =
+      case assigns.label_position do
+        :none -> :none
+        :inside -> :inside
+        :outside -> :outside
+        :fit when inside_fits? -> :inside
+        :fit -> assigns.label_fit_fallback
+      end
+
+    case mode do
+      :inside ->
+        {%{event: bar.event, style: style, content: :inline, label: nil}, label_spans}
+
+      :none ->
+        {%{event: bar.event, style: style, content: :none, label: nil}, label_spans}
+
+      :outside ->
+        label_pct = min(Utils.Sizing.label_rem(title) / track_rem * 100, 25.0)
+        taken = bar_spans ++ label_spans
+        bar_end = bar.start + bar.width
+
+        cond do
+          title == "" ->
+            {%{event: bar.event, style: style, content: :none, label: nil}, label_spans}
+
+          free?(bar_end + 0.3, bar_end + 0.3 + label_pct, taken) ->
+            span = {bar_end + 0.3, bar_end + 0.3 + label_pct}
+
+            {%{
+               event: bar.event,
+               style: style,
+               content: :none,
+               label: %{at: bar_end + 0.3, max_w: label_pct, text: title}
+             }, [span | label_spans]}
+
+          free?(bar.start - 0.3 - label_pct, bar.start - 0.3, taken) ->
+            span = {bar.start - 0.3 - label_pct, bar.start - 0.3}
+
+            {%{
+               event: bar.event,
+               style: style,
+               content: :none,
+               label: %{at: bar.start - 0.3 - label_pct, max_w: label_pct, text: title}
+             }, [span | label_spans]}
+
+          true ->
+            {%{event: bar.event, style: style, content: :none, label: nil}, label_spans}
+        end
+    end
+  end
+
+  # No overlap with any reserved interval, and inside the track.
+  defp free?(from, to, taken) do
+    from >= 0.0 and to <= 100.0 and
+      not Enum.any?(taken, fn {a, b} -> from < b - 0.01 and to > a + 0.01 end)
+  end
+
+  defp bar_geometry(event, date, min_time, max_time, clamp) do
     {start_time, end_time} = event_window(event, date, clamp)
 
     start_pct = TimeSlots.time_to_percentage(start_time, min_time: min_time, max_time: max_time)
@@ -262,7 +381,7 @@ defmodule PhoenixLiveCalendar.Views.Timeline do
     width = max(end_pct - start_pct, 2.0)
     start_pct = start_pct |> min(100.0 - width) |> max(0.0)
 
-    "inset-inline-start: #{start_pct}%; width: #{width}%"
+    {start_pct, width}
   end
 
   # The times an event's bar occupies on the rendered date. With clamping,
