@@ -36,6 +36,8 @@
 - Layer visibility survives layer-list reloads (stale ids intersect at filter time; seeding happens once, on the first non-empty list).
 - Header `:start` layout keeps its wing content; heatmap quantile ties stay in their bucket; week/agenda boundary events land on the right side of midnight; all-day `DateTime` events occupy the right days.
 
+## 0.2.0
+
 ### Added
 
 - `respect_hours` mode (month view): timed events cover only the hours they occupy — single-day events become inset bars sized to their duration; multi-day bars trim their boundary days to their start/end hours. Very short events keep a 1-hour minimum width so they stay visible. Opt-in (default off); all-day events and a custom `:event` slot are unaffected. Threaded through `CalendarComponent`.
