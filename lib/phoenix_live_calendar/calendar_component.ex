@@ -249,6 +249,20 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
              info (ⓘ) disclosure. The calendar owns the icon; the consumer owns
              the words (it knows what its events/markings mean). --%>
         <:help :if={assigns[:info] not in [nil, []]}>{render_slot(assigns[:info])}</:help>
+        <%!-- Consumer content in the calendar's OWN toolbar — the Header always
+             had these slots, but the LiveComponent never forwarded them, so
+             consumers were forced to stack their controls (filter buttons,
+             legends, exports) in a separate row above the calendar. Events
+             from slot content route to the parent LiveView as usual (only
+             explicit phx-target={@myself} reaches this component); hooks that
+             auto-target their enclosing component (auto-routing typeaheads
+             etc.) need their target pointed back at parent-owned DOM. --%>
+        <:toolbar_start :if={assigns[:toolbar_start] not in [nil, []]}>
+          {render_slot(assigns[:toolbar_start])}
+        </:toolbar_start>
+        <:toolbar_end :if={assigns[:toolbar_end] not in [nil, []]}>
+          {render_slot(assigns[:toolbar_end])}
+        </:toolbar_end>
       </Header.header>
 
       <%!-- Layer legend: one toggle chip per layer. Hidden layers' events are

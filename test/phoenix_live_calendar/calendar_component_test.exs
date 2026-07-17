@@ -779,6 +779,27 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert timeline_html =~ "Meeting!!"
     end
 
+    test "the :toolbar_start and :toolbar_end slots reach the header toolbar" do
+      toolbar_slot = fn name, marker ->
+        %{
+          __slot__: name,
+          inner_block: fn _index, _arg ->
+            assigns = %{marker: marker}
+            ~H|<span class={@marker}>{@marker}</span>|
+          end
+        }
+      end
+
+      html =
+        render_html(:month, %{
+          toolbar_start: [toolbar_slot.(:toolbar_start, "custom-toolbar-start")],
+          toolbar_end: [toolbar_slot.(:toolbar_end, "custom-toolbar-end")]
+        })
+
+      assert html =~ "custom-toolbar-start"
+      assert html =~ "custom-toolbar-end"
+    end
+
     test "the :day_cell slot replaces month cells" do
       day_cell = %{
         __slot__: :day_cell,
