@@ -40,7 +40,7 @@ Consumer workflow:
 
 ```bash
 # 1. Add to mix.exs
-{:phoenix_live_calendar, "~> 0.2.0"}
+{:phoenix_live_calendar, "~> 0.3.0"}
 
 # 2. Install
 mix deps.get

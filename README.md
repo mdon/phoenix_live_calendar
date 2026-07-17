@@ -40,7 +40,9 @@ richer interaction; never depend on them for the page to look right.
 > **View maturity:** All eight views render server-side and work today.
 > **Month, week and day** are the polished, phone-tuned views (the time grids
 > gained day markers, dense all-day lanes, detail event blocks and responsive
-> columns in 0.3); year, agenda, timeline and resource are functional but less
+> columns in 0.3). **Timeline and resource** were substantially hardened in
+> 0.3 (midnight clamping, fitted windows, sticky columns, now line, bar
+> labels, shared day-segment math); year and agenda are functional but less
 > refined.
 
 ## Installation
@@ -50,7 +52,7 @@ Add `phoenix_live_calendar` to your dependencies:
 ```elixir
 def deps do
   [
-    {:phoenix_live_calendar, "~> 0.2.0"}
+    {:phoenix_live_calendar, "~> 0.3.0"}
   ]
 end
 ```
