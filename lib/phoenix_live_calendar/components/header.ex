@@ -79,14 +79,20 @@ defmodule PhoenixLiveCalendar.Components.Header do
 
     ~H"""
     <div
-      class={[
-        "cal-header items-center max-sm:gap-1 px-2 py-1.5 sm:px-3 sm:py-2 min-h-11",
-        if(@start_layout?,
-          do: "cal-header-start flex gap-1",
-          else: "grid grid-cols-[1fr_auto_1fr]"
-        ),
-        @class
-      ]}
+      class={
+        [
+          "cal-header items-center max-sm:gap-1 px-2 py-1.5 sm:px-3 sm:py-2 min-h-11",
+          if(@start_layout?,
+            do: "cal-header-start flex gap-1",
+            # The three-zone grid can't shrink below its content, so on phones a
+            # toolbar carrying view buttons + consumer slots would force the
+            # whole page wider than the screen — flow the zones as wrapping rows
+            # there instead (grid alignment resumes from `sm:` up).
+            else: "max-sm:flex max-sm:flex-wrap sm:grid sm:grid-cols-[1fr_auto_1fr]"
+          ),
+          @class
+        ]
+      }
       role="toolbar"
       aria-label={I18n.label(:go_to_today, @translations)}
     >
@@ -94,7 +100,7 @@ defmodule PhoenixLiveCalendar.Components.Header do
            start layout this renders AFTER the title (order-2) so provided
            content is never silently dropped. --%>
       <div class={[
-        "flex items-center gap-2",
+        "flex flex-wrap items-center gap-2",
         if(@start_layout?, do: "order-2", else: "justify-self-start")
       ]}>
         <%!-- Info (ⓘ) disclosure: a no-JS <details> popover whose body is the
@@ -180,7 +186,7 @@ defmodule PhoenixLiveCalendar.Components.Header do
 
       <%!-- Right: view switcher + custom slot --%>
       <div class={[
-        "flex items-center gap-1",
+        "flex flex-wrap items-center gap-1",
         if(@start_layout?, do: "order-3 ms-auto", else: "justify-self-end")
       ]}>
         <div
