@@ -213,7 +213,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     <div
       id={@id}
       class={[
-        "cal-container flex flex-col bg-base-100 text-base-content rounded-lg border border-base-content/15 overflow-hidden shadow-sm",
+        "cal-container flex flex-col bg-base-100 text-base-content rounded-lg border border-base-content/15 shadow-sm",
         assigns[:class] || ""
       ]}
       dir={to_string(assigns[:dir] || :ltr)}
@@ -299,7 +299,17 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
         </button>
       </div>
 
-      <div class="cal-view-container flex-1 overflow-auto">
+      <%!-- The view clips/scrolls its own box (rounded to match the container's
+           corners) instead of the container clipping everything — a container
+           clip also swallowed toolbar content that must escape the calendar,
+           like the tooltip bubbles of consumer controls in the toolbar slots.
+           Top corners round only when the view IS the container's top (no
+           toolbar/legend above), else the tinted view header would get
+           notched mid-container. --%>
+      <div class={[
+        "cal-view-container flex-1 overflow-auto",
+        if(view_first?(assigns), do: "rounded-[inherit]", else: "rounded-b-[inherit]")
+      ]}>
         <.render_view
           view={@internal_view}
           date={@internal_date}
@@ -1095,6 +1105,14 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           "[PhoenixLiveCalendar] Expected function for #{callback_key}, got: #{inspect(other)}"
         )
     end
+  end
+
+  # Whether the view container is the container's FIRST visible child (no
+  # toolbar and no legend above it) — it may then round its top corners to
+  # the container's radius too.
+  defp view_first?(assigns) do
+    assigns[:show_header] == false and
+      ((assigns[:layers] || []) == [] or assigns[:show_legend] == false)
   end
 
   defp today_visible?(assigns) do
