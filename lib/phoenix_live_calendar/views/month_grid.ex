@@ -175,12 +175,12 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
         </div>
         <div
           :for={{name, narrow, full} <- @day_names}
-          class="cal-day-header text-xs sm:text-sm font-semibold text-base-content uppercase tracking-tight sm:tracking-wider py-1.5 sm:py-2 text-center"
+          class="cal-day-header text-xs @2xl:text-sm font-semibold text-base-content uppercase tracking-tight @2xl:tracking-wider py-1 @2xl:py-2 text-center"
           role="columnheader"
           aria-label={full}
         >
-          <span class="sm:hidden">{narrow}</span>
-          <span class="hidden sm:inline">{name}</span>
+          <span class="@2xl:hidden">{narrow}</span>
+          <span class="hidden @2xl:inline">{name}</span>
         </div>
       </div>
 
@@ -205,8 +205,8 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
           class={[
             "cal-day-cell min-w-0 border-e border-base-content/5 relative",
             if(@expand_cells,
-              do: "min-h-24 md:min-h-28 lg:min-h-32",
-              else: "min-h-24 h-24 md:h-28 lg:h-32 overflow-hidden"
+              do: "min-h-20 @3xl:min-h-28 @5xl:min-h-32",
+              else: "min-h-20 h-20 @3xl:h-28 @5xl:h-32 overflow-hidden"
             ),
             cell_classes(day, @date, @today, @selected_date, Map.get(@markers_by_date, day, []))
           ]}
@@ -228,7 +228,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
             <%!-- Day number row: number + marker labels --%>
             <div class="flex items-center gap-1 px-0.5 pt-0.5 min-h-5 overflow-hidden">
               <span class={[
-                "cal-day-number text-xs sm:text-sm w-5 h-5 inline-flex items-center justify-center flex-shrink-0",
+                "cal-day-number text-xs @2xl:text-sm w-5 h-5 inline-flex items-center justify-center flex-shrink-0",
                 day_number_class(day, @date, @today)
               ]}>
                 {day.day}

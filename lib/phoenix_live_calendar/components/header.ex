@@ -81,14 +81,17 @@ defmodule PhoenixLiveCalendar.Components.Header do
     <div
       class={
         [
-          "cal-header items-center max-sm:gap-1 px-2 py-1.5 sm:px-3 sm:py-2 min-h-11",
+          "cal-header items-center @max-2xl:gap-1 px-2 py-1.5 @2xl:px-3 @2xl:py-2 min-h-11",
           if(@start_layout?,
             do: "cal-header-start flex gap-1",
-            # The three-zone grid can't shrink below its content, so on phones a
-            # toolbar carrying view buttons + consumer slots would force the
-            # whole page wider than the screen — flow the zones as wrapping rows
-            # there instead (grid alignment resumes from `sm:` up).
-            else: "max-sm:flex max-sm:flex-wrap sm:grid sm:grid-cols-[1fr_auto_1fr]"
+            # The three-zone grid can't shrink below its content, so in a
+            # NARROW CONTAINER (a phone, or a slim column on a wide screen) a
+            # toolbar carrying view buttons + consumer slots would either
+            # overflow or stack each wing into a tall column — flow the zones
+            # as wrapping rows there instead (grid alignment resumes when the
+            # container is wide enough). Container-keyed, not viewport-keyed:
+            # the calendar doesn't care how big the screen around it is.
+            else: "@max-2xl:flex @max-2xl:flex-wrap @2xl:grid @2xl:grid-cols-[1fr_auto_1fr]"
           ),
           @class
         ]
@@ -164,7 +167,7 @@ defmodule PhoenixLiveCalendar.Components.Header do
 
         <h2
           class={[
-            "cal-title text-sm sm:text-base font-semibold min-w-0 sm:min-w-32 max-w-[55vw] sm:max-w-none truncate select-none",
+            "cal-title text-sm @2xl:text-base font-semibold min-w-0 @2xl:min-w-32 max-w-[45cqw] @2xl:max-w-none truncate select-none",
             if(@start_layout?, do: "text-start", else: "text-center")
           ]}
           aria-live="polite"

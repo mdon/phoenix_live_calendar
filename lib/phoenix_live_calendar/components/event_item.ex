@@ -316,9 +316,14 @@ defmodule PhoenixLiveCalendar.Components.EventItem do
 
   defp event_base_class(%Event{} = event) do
     cond do
-      event.display == :background -> "cal-event-bg opacity-30"
-      Event.all_day?(event) -> "cal-event-allday rounded px-1 py-0.5"
-      true -> "cal-event-timed rounded px-1 py-0.5"
+      event.display == :background ->
+        "cal-event-bg opacity-30"
+
+      Event.all_day?(event) ->
+        "cal-event-allday rounded px-1 py-0.5 @max-2xl:py-0 @max-2xl:text-[11px] @max-2xl:leading-snug"
+
+      true ->
+        "cal-event-timed rounded px-1 py-0.5"
     end
   end
 

@@ -213,7 +213,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     <div
       id={@id}
       class={[
-        "cal-container flex flex-col bg-base-100 text-base-content rounded-lg border border-base-content/15 shadow-sm",
+        "cal-container @container flex flex-col bg-base-100 text-base-content rounded-lg border border-base-content/15 shadow-sm",
         assigns[:class] || ""
       ]}
       dir={to_string(assigns[:dir] || :ltr)}
@@ -306,6 +306,9 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
            Top corners round only when the view IS the container's top (no
            toolbar/legend above), else the tinted view header would get
            notched mid-container. --%>
+      <%!-- The root is the @container: header AND views size themselves to
+           the CONTAINER's width, not the viewport — a calendar in a narrow
+           column on a wide screen must compact exactly like one on a phone. --%>
       <div class={[
         "cal-view-container flex-1 overflow-auto",
         if(view_first?(assigns), do: "rounded-[inherit]", else: "rounded-b-[inherit]")

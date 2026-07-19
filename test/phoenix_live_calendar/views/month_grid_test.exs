@@ -217,8 +217,8 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       html = render(~H"<.month_grid date={@date} week_start={1} />")
 
       # Narrow letters show only on phones; short names only from `sm` up.
-      assert html =~ ~s(class="sm:hidden")
-      assert html =~ ~s(class="hidden sm:inline")
+      assert html =~ ~s(class="@2xl:hidden")
+      assert html =~ ~s(class="hidden @2xl:inline")
       assert html =~ "Mon"
       # Screen readers still get the full day name regardless of breakpoint.
       assert html =~ ~s(aria-label="Monday")
@@ -547,16 +547,16 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
       html = render(~H"<.month_grid date={@date} />")
 
       # fixed height tier + clipping
-      assert html =~ "lg:h-32"
+      assert html =~ "@5xl:h-32"
     end
 
     test "expand_cells grows day cells to fit (min-height, no clip)" do
       assigns = %{date: ~D[2026-04-01]}
       html = render(~H"<.month_grid date={@date} expand_cells={true} />")
 
-      assert html =~ "lg:min-h-32"
+      assert html =~ "@5xl:min-h-32"
       # no fixed-height tier on the cell (so it can grow with its bars)
-      refute html =~ "lg:h-32"
+      refute html =~ "@5xl:h-32"
     end
   end
 
