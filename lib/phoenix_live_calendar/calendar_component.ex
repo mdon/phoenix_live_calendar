@@ -60,6 +60,15 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   - `:resource_label` / `:resource_header` — timeline / resource column labels
   - `:day_header` / `:no_events` — agenda day headings and empty state
   - `:info` — toolbar info (ⓘ) disclosure content
+
+  ## Sizing
+
+  The calendar is an `@container`: header and views compact to the
+  CONTAINER's width, not the viewport. Container-query containment strips
+  intrinsic width, so the root carries `w-full` — give the calendar a
+  width-defining parent (any block/flex column does); inside a
+  shrink-to-fit context (inline-block, float, flex row without a basis) a
+  container-queried element cannot size itself by its content.
   """
 
   use Phoenix.LiveComponent
@@ -213,7 +222,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     <div
       id={@id}
       class={[
-        "cal-container @container flex flex-col bg-base-100 text-base-content rounded-lg border border-base-content/15 shadow-sm",
+        "cal-container @container w-full flex flex-col bg-base-100 text-base-content rounded-lg border border-base-content/15 shadow-sm",
         assigns[:class] || ""
       ]}
       dir={to_string(assigns[:dir] || :ltr)}

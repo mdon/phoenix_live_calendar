@@ -163,7 +163,12 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
       |> assign(:day_names, day_names)
 
     ~H"""
-    <div class={["cal-month-grid", @class]} dir={to_string(@dir)} role="grid">
+    <%!-- @container on the grid root too: standalone `<.month_grid>` (the
+         documented direct path) has no cal-container ancestor, and without a
+         container the @-tier classes never fire — it would be stuck at the
+         compact base tier. Inside the component this is the NEAREST container
+         at effectively the same width, so nothing changes there. --%>
+    <div class={["cal-month-grid @container w-full", @class]} dir={to_string(@dir)} role="grid">
       <%!-- Day headers --%>
       <div
         role="row"
