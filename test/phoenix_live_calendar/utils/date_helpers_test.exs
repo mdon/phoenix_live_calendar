@@ -175,5 +175,21 @@ defmodule PhoenixLiveCalendar.Utils.DateHelpersTest do
       assert length(weeks) == 6
       Enum.each(weeks, fn week -> assert length(week) == 7 end)
     end
+
+    test "group_by_weeks/2 chunks a weekend-filtered grid into 5-day rows that stay aligned" do
+      weekdays =
+        ~D[2026-04-01]
+        |> DateHelpers.month_grid()
+        |> Enum.reject(&DateHelpers.weekend?/1)
+
+      weeks = DateHelpers.group_by_weeks(weekdays, 5)
+
+      Enum.each(weeks, fn week ->
+        assert length(week) == 5
+        # Every row starts on a Monday — chunking by 7 bled two days of the
+        # next week into each row and shifted the whole grid.
+        assert Date.day_of_week(hd(week)) == 1
+      end)
+    end
   end
 end

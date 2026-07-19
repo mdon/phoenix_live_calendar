@@ -107,8 +107,8 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
         Enum.reject(dates, &DateHelpers.weekend?/1)
       end
 
-    weeks = DateHelpers.group_by_weeks(dates)
     days_per_week = if assigns.show_weekends, do: 7, else: 5
+    weeks = DateHelpers.group_by_weeks(dates, days_per_week)
 
     # Split events: anything occupying more than one calendar DATE renders as
     # one continuous bar (a multi-day all-day event, OR a timed event that

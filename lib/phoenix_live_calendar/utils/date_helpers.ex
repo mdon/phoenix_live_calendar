@@ -269,11 +269,15 @@ defmodule PhoenixLiveCalendar.Utils.DateHelpers do
   end
 
   @doc """
-  Groups a flat list of dates into weeks (lists of 7 dates).
+  Groups a flat list of dates into week rows (chunks of `days_per_week`).
+
+  `days_per_week` is 7 for a full grid, 5 when weekends are filtered out —
+  chunking a weekend-filtered list by 7 would bleed two days of the next
+  week into every row and shift the whole grid out of alignment.
   """
-  @spec group_by_weeks([Date.t()]) :: [[Date.t()]]
-  def group_by_weeks(dates) do
-    Enum.chunk_every(dates, 7)
+  @spec group_by_weeks([Date.t()], pos_integer()) :: [[Date.t()]]
+  def group_by_weeks(dates, days_per_week \\ 7) do
+    Enum.chunk_every(dates, days_per_week)
   end
 
   @doc """

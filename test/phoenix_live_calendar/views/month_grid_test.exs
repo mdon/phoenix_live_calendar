@@ -31,6 +31,31 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
   end
 
   describe "month_grid/1" do
+    test "show_weekends: false keeps 5-day rows aligned (no cross-week bleed)" do
+      assigns = %{date: ~D[2026-04-01]}
+
+      html = render(~H"<.month_grid date={@date} show_weekends={false} />")
+      doc = Floki.parse_document!(html)
+
+      # No weekend cells at all.
+      assert Floki.find(doc, "[data-date='2026-04-04']") == []
+      assert Floki.find(doc, "[data-date='2026-04-05']") == []
+
+      # Every week row holds exactly 5 day cells, each row starting on a
+      # Monday — the pre-fix 7-chunking pushed Wed/Thu/Fri of later weeks
+      # into the wrong rows.
+      rows = Floki.find(doc, ".cal-week-row")
+      assert rows != []
+
+      for row <- rows do
+        cells = Floki.find(row, ".cal-day-cell")
+        assert length(cells) == 5
+
+        [first | _] = Floki.attribute(cells, "data-date")
+        assert Date.day_of_week(Date.from_iso8601!(first)) == 1
+      end
+    end
+
     test "renders month grid structure" do
       assigns = %{date: ~D[2026-04-01]}
 
