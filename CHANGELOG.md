@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0
+
+### Changed
+
+- **Container-query sizing (behavior-changing — the reason this is 0.4.0):** the component root is now a CSS `@container`; the header and the month grid compact to the CALENDAR's width instead of the viewport's (`@2xl`/`@3xl`/`@5xl` tiers). A calendar in a narrow column on a wide screen now renders exactly like one on a phone. The root carries `w-full` — give the calendar a width-defining parent (see the new "Sizing" section in the `CalendarComponent` moduledoc); inside a shrink-to-fit context a container-queried element cannot size itself by its content. Standalone `<.month_grid>` is its own `@container`.
+- The container no longer clips its children: `overflow-hidden` moved from `.cal-container` to the inner `.cal-view-container` (which rounds to the container's corners), so tooltip/popover bubbles of consumer controls in the toolbar slots are no longer swallowed at the calendar edge. Consumer note: `container-type: inline-size` makes the calendar the containing block for `position: fixed`/`absolute` descendants (a CSS containment side effect) — overlays inside the toolbar slots resolve their coordinates against the calendar box now.
+- The header toolbar wraps on narrow containers instead of overflowing (the rigid three-zone grid resumes at `@2xl`); wings wrap; the title caps at `45cqw` while narrow.
+- Month grid density tightens in narrow containers: 80px day cells (112/128px at `@3xl`/`@5xl`), compact day headers with narrow weekday names, slimmer all-day chips.
+
+### Fixed
+
+- Hiding weekends no longer misaligns month rows — dates chunk by the actual days-per-week instead of always 7, which bled two next-week days into every row.
+
+### Added
+
+- `DateHelpers.group_by_weeks/2` — optional `days_per_week` argument (default 7; `group_by_weeks/1` unchanged).
+
+
 ## 0.3.0
 
 ### Added
