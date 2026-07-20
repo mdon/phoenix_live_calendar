@@ -171,6 +171,11 @@ defmodule PhoenixLiveCalendar.Components.HeaderTest do
 
       refute centered =~ "cal-header-start"
       assert centered =~ "grid-cols-[1fr_auto_1fr]"
+      # The base display MUST be unconditional (not a @max-2xl variant):
+      # a standalone <.header> without a @container ancestor matches no
+      # container query and would fall back to display:block — the three
+      # toolbar zones stacking as full-width rows. 0.4.0 review blocker.
+      assert centered =~ "flex flex-wrap @2xl:grid"
     end
 
     test "layout={:start} keeps provided wing content instead of dropping it" do

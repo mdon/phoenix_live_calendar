@@ -91,7 +91,11 @@ defmodule PhoenixLiveCalendar.Components.Header do
             # as wrapping rows there instead (grid alignment resumes when the
             # container is wide enough). Container-keyed, not viewport-keyed:
             # the calendar doesn't care how big the screen around it is.
-            else: "@max-2xl:flex @max-2xl:flex-wrap @2xl:grid @2xl:grid-cols-[1fr_auto_1fr]"
+            # `flex flex-wrap` is the UNCONDITIONAL base (not a @max-2xl
+            # variant): standalone `<.header>` consumers without a
+            # `@container` ancestor match no container query at all and
+            # would otherwise fall back to display:block — stacked zones.
+            else: "flex flex-wrap @2xl:grid @2xl:grid-cols-[1fr_auto_1fr]"
           ),
           @class
         ]

@@ -63,12 +63,14 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
 
   ## Sizing
 
-  The calendar is an `@container`: header and views compact to the
-  CONTAINER's width, not the viewport. Container-query containment strips
-  intrinsic width, so the root carries `w-full` — give the calendar a
-  width-defining parent (any block/flex column does); inside a
-  shrink-to-fit context (inline-block, float, flex row without a basis) a
-  container-queried element cannot size itself by its content.
+  The calendar is an `@container`: the header and the month view compact
+  to the CONTAINER's width, not the viewport (the other views still key
+  their responsive tiers on the viewport for now). Container-query
+  containment strips intrinsic width, so the root carries `w-full` —
+  give the calendar a width-defining parent (any block/flex column
+  does); inside a shrink-to-fit context (inline-block, float, flex row
+  without a basis) a container-queried element cannot size itself by its
+  content.
   """
 
   use Phoenix.LiveComponent
