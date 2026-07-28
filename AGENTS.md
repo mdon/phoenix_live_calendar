@@ -104,7 +104,7 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 
 ## Current Status
 
-**All layers implemented. ~597 tests passing. Zero warnings. Zero credo strict issues. Dialyzer clean.** (Counts drift — trust `mix test` output over this line.)
+**All layers implemented. ~622 tests passing. Zero warnings. Zero credo strict issues. Dialyzer clean.** (Counts drift — trust `mix test` output over this line.)
 
 - ~40 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), ~37 test files
 - Layer 0 (Pure Elixir views): Complete — all 8 views
@@ -678,7 +678,7 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`.
 
 ## Testing
 
-- **405 tests, 0 failures** (82% line coverage; core ~90%+)
+- **622 tests, 0 failures** (counts drift — trust `mix test`)
 - Unit tests for all structs, utilities, constraints
 - Component rendering tests for all views and primitives (using `rendered_to_string`)
 - CalendarComponent: mount/update sync, every `handle_event/3` clause + callback, and `render/1` per view — driven directly (no endpoint needed)
