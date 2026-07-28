@@ -40,7 +40,7 @@ Consumer workflow:
 
 ```bash
 # 1. Add to mix.exs
-{:phoenix_live_calendar, "~> 0.3.0"}
+{:phoenix_live_calendar, "~> 0.5.0"}
 
 # 2. Install
 mix deps.get
@@ -117,6 +117,11 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
   per-instance event ids, now attr, resource view parity, plural
   resource_ids — plus a two-phase quality sweep (in-house triage +
   external AI quorum)
+- 0.5 wave (2026-07): dense-custom-grid escape hatches (cell_height,
+  cell_overflow incl. the view-container clip lift + hover z-lift) and the
+  :header replacement slot (on_prev/on_next/on_today + view_options
+  descriptors) — hardened by a six-AI quorum review (sanitizer adjacency,
+  {:n_day, n} count loss, slot-arg contract redesign)
 - Layer 2 (PubSub): Complete
 - Layer 3 (Booking constraints): Complete
 - Layer 4 (Ecto): Complete

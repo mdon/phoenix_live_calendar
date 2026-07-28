@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.5.0
+
+Built for dense custom month grids (the driving case: a GitHub-style activity
+heatmap with a custom `:day_cell` and its own chrome). Reviewed pre-release by
+a six-AI quorum; all verified findings fixed below.
+
+### Added
+
+- **`cell_height`** (month grid + `CalendarComponent`): a CSS dimension (e.g.
+  `"40px"`) replacing the built-in responsive cell-height tiers — applied as
+  `height` in fixed mode, or as the `min-height` floor with `expand_cells`.
+  Invalid values fall back to the built-in tiers, never a substitute size.
+  Plain `<number><unit>` only (`calc()`/`var()`/`clamp()` count as invalid;
+  avoid `%`, which resolves to `auto` against the grid's auto-sized rows).
+- **`cell_overflow`** (`:clip` default | `:visible`): `:visible` drops the
+  fixed-height cell clip so custom `:day_cell` tooltips/popovers can escape,
+  independent of `expand_cells`. Inside the component it also switches
+  `.cal-view-container` from `overflow-auto` to `overflow-visible` (month view
+  only) so the ancestor doesn't re-swallow the tooltip — the trade: that view
+  no longer scrolls inside a bounded-height panel. `:visible` cells carry
+  `hover:z-20 focus-within:z-20` so an escaping tooltip isn't painted over by
+  the sibling cells after it.
+- **`:header` slot** on `CalendarComponent`: replaces the ENTIRE built-in
+  toolbar with custom chrome. The slot arg carries the nav state (`title`,
+  `view`, `date`, `today_date`, `today_visible`) plus commands pre-targeted at
+  the component: `on_prev`/`on_next`/`on_today` JS pushes and `view_options` —
+  an ordered list of `%{view, label, active?, command}` descriptors with the
+  stock switcher's localized labels, so a complete custom switcher is one
+  `:for`. Replacement is total (`:toolbar_start`/`:toolbar_end`/`:info` render
+  only inside the stock toolbar); `show_header={false}` suppresses the slot
+  too; opaque chrome should round its own top corners (`rounded-t-[inherit]`).
+
+### Fixed
+
+- `Safe.sanitize_css_dimension/2` no longer accepts a space between number and
+  unit — `"40 px"` passed validation, emitted a dead CSS declaration, and (for
+  `cell_height`) still removed the tier classes the fallback promised to keep.
+- `{:n_day, n}` day counts are no longer lost: switching to the N-day view
+  derives `n` from a `{:n_day, n}` entry in `views` when the `n_days` attr is
+  unset (previously always 4), and the internal view tuple — e.g.
+  `view={:n_day, 3}` — now drives how many days render instead of the
+  `n_days` default.
+
+
 ## 0.4.0
 
 ### Changed
