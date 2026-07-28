@@ -345,8 +345,13 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       <%!-- The root is the @container: header AND views size themselves to
            the CONTAINER's width, not the viewport — a calendar in a narrow
            column on a wide screen must compact exactly like one on a phone. --%>
+      <%!-- cell_overflow: :visible must hold through the ANCESTOR chain too:
+           the month view's unclipped cells buy nothing if this scroll
+           container swallows the tooltip anyway. The trade (documented on
+           the attr) is no scroll fallback and no corner clip for that view. --%>
       <div class={[
-        "cal-view-container flex-1 overflow-auto",
+        "cal-view-container flex-1",
+        view_overflow_class(assigns),
         if(view_first?(assigns), do: "rounded-[inherit]", else: "rounded-b-[inherit]")
       ]}>
         <.render_view
@@ -1175,6 +1180,17 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
         end),
       myself: myself
     }
+  end
+
+  # The view container scrolls (overflow-auto) — except when the month view
+  # runs with cell_overflow: :visible, where an ancestor clip would betray
+  # the flag: custom day-cell tooltips must escape the grid, not scroll it.
+  defp view_overflow_class(assigns) do
+    if assigns.internal_view == :month and assigns[:cell_overflow] == :visible do
+      "overflow-visible"
+    else
+      "overflow-auto"
+    end
   end
 
   # Whether the view container is the container's FIRST visible child (no

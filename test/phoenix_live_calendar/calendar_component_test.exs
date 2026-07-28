@@ -456,6 +456,19 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       refute html =~ "@5xl:h-32"
       refute html =~ "min-h-20 h-20"
     end
+
+    test "cell_overflow: :visible lifts the view container's scroll clip (month view only)" do
+      # An unclipped cell buys nothing if the surrounding scroll container
+      # swallows the escaping tooltip anyway.
+      assert render_html(:month, %{cell_overflow: :visible}) =~
+               "cal-view-container flex-1 overflow-visible"
+
+      # Other views (and the default) keep the scroll container.
+      assert render_html(:week, %{cell_overflow: :visible}) =~
+               "cal-view-container flex-1 overflow-auto"
+
+      assert render_html(:month, %{}) =~ "cal-view-container flex-1 overflow-auto"
+    end
   end
 
   describe "show_today_button" do

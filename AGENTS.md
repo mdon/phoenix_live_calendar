@@ -508,7 +508,7 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 | `header_layout` | `:auto` | Toolbar collapses to a start row when both wings are empty; `:centered`/`:start` force |
 | `event_content` | `:auto` | Week/day/resource block content tier by estimated height (`:detail`/`:inline`/`:title`/`:none` force) |
 | `cell_height` | `nil` | Month view: CSS height (e.g. `"2.5rem"`) replacing the built-in responsive cell-height tiers; `height` in fixed mode, `min-height` floor with `expand_cells`. Invalid values fall back to the tiers (not a substitute size) |
-| `cell_overflow` | `:clip` | Month view: `:visible` drops `overflow-hidden` from fixed-height cells so custom `:day_cell` tooltips/popovers can escape; independent of `expand_cells` |
+| `cell_overflow` | `:clip` | Month view: `:visible` drops `overflow-hidden` from fixed-height cells so custom `:day_cell` tooltips/popovers can escape; independent of `expand_cells`. In the component it ALSO switches `.cal-view-container` from `overflow-auto` to `overflow-visible` (month view only) — an ancestor clip would betray the flag; trade: no scroll fallback/corner clip there |
 | `min_event_height` | `"1.25rem"` | Height floor for week/day/resource blocks (`"0"` disables) |
 | `label_position` (+`label_fit_ratio`, `label_fit_fallback`) | `:fit` | Timeline bar labels: inside when the estimate fits, else outside/suppressed |
 | `show_time_axis` | `true` | Timeline hour header |
