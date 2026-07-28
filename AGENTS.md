@@ -519,10 +519,14 @@ Slot forwarding: the views' customization slots (`:event`, `:day_cell`,
 `:no_events`) pass through `<.live_component>` children into every view
 that supports them; `:info` feeds the toolbar's ⓘ disclosure. The
 `:header` slot replaces the ENTIRE built-in toolbar with custom chrome —
-its arg carries `%{title, view, date, views, today_visible, prev, next,
-today, set_view, myself}` where `prev`/`next`/`today` are ready-made JS
-pushes and `set_view` maps each configured view to one (views serialize
-via `Header.view_value/1` — `{:n_day, n}` flattens to `"n_day"`);
+its arg carries `%{title, view, date, today_date, today_visible,
+on_prev, on_next, on_today, view_options, myself}`: `on_*` are
+ready-made JS pushes and `view_options` is an ordered list of
+`%{view, label, active?, command}` descriptors (localized via
+`Header.view_label/1`; views serialize via `Header.view_value/1` —
+`{:n_day, n}` flattens to `"n_day"`). Replacement is total —
+`:toolbar_start`/`:toolbar_end`/`:info` render only in the stock
+toolbar; opaque chrome needs `rounded-t-[inherit]`.
 `show_header={false}` suppresses the slot too.
 
 ### View/date sync (controlled vs uncontrolled)
@@ -642,6 +646,15 @@ App JS setup: `app/assets/js/app.js` imports `phoenix_live_calendar.js` at `../.
 10. **Print styles** — No CSS for printing calendar views.
 
 11. **Recurring event visual indicator** — No built-in icon/badge for recurring event instances.
+
+### Roadmap from the 0.5.0 quorum review (2026-07-28, 6 external AIs)
+
+- **Portal/fixed-position popover as progressive enhancement** — the long-term fix for escaped day-cell tooltips: a JS hook portals the tooltip out of the scroll container (JS-off degrades to today's clipping — fits Phoenix-first). Would also let `cell_overflow: :visible` stop trading away the view scrollport (or: split a separate `view_overflow` attr so bounded-height panels keep scroll).
+- **Dense/compact month preset** — `density: :compact` or a documented "heatmap recipe": the stock cell chrome (w-5 day circle, +N more, paddings) can't fit ~40px rows on its own, so today dense grids require `cell_height` + `cell_overflow` + a full `:day_cell` rewrite.
+- **Cell-size parity beyond month** — `cell_height`-style sizing for year/mini (dense year heatmaps), week/day/resource.
+- **Widen the CSS dimension sanitizer** — `calc()`/`clamp()`/`var()`/`dvh` with a stricter parser; today they're rejected (fall back), by design.
+- **Chrome-less month grid extras** — `show_day_names={false}` (drop the weekday header row) and a `:day_number` slot (decorate the date row without taking over the whole cell).
+- **Pre-existing gaps surfaced by the review** (not introduced, documented here): `today_visible?/1` ignores `fixed_weeks`/`show_weekends` (a today in the phantom 6th week reports visible); the month cell's `phx-click` wraps custom `:day_cell` content, so interactive tooltip content bubbles to `on_date_click` when that's set (consumers: stop propagation).
 
 ### Known gotchas to document
 

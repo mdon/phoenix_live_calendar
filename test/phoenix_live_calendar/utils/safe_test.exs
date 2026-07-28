@@ -172,6 +172,13 @@ defmodule PhoenixLiveCalendar.Utils.SafeTest do
   describe "sanitize_css_dimension/2 fallback parameter" do
     import ExUnit.CaptureLog
 
+    test "a space between number and unit is rejected (invalid CSS)" do
+      capture_log(fn ->
+        assert Safe.sanitize_css_dimension("40 px", "3rem") == "3rem"
+        assert Safe.sanitize_css_dimension("50 %", "3rem") == "3rem"
+      end)
+    end
+
     test "an invalid dimension returns the SUPPLIED fallback, not a hardcoded 3rem" do
       capture_log(fn ->
         assert Safe.sanitize_css_dimension("javascript:alert(1)", "1.25rem") == "1.25rem"

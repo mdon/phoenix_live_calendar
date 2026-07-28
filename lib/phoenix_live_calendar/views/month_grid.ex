@@ -75,13 +75,13 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   attr :cell_height, :string,
     default: nil,
     doc:
-      "CSS height for day cells (e.g. \"2.5rem\", \"40px\"), replacing the built-in responsive height tiers — dense custom grids (heatmaps, dashboards) usually pair it with a `:day_cell` slot. Fixed mode applies it as `height`; with `expand_cells` it becomes the `min-height` floor instead. `nil` (default) keeps the built-in tiers; invalid values fall back to them."
+      "CSS height for day cells (e.g. \"2.5rem\", \"40px\"), replacing the built-in responsive height tiers — dense custom grids (heatmaps, dashboards) usually pair it with a `:day_cell` slot. Fixed mode applies it as `height`; with `expand_cells` it becomes the `min-height` floor instead. `nil` (default) keeps the built-in tiers; invalid values fall back to them. Only a plain `<number><unit>` is accepted — `calc()`/`var()`/`clamp()` count as invalid — and a custom height is one fixed size (it does not scale with the container tiers the way the built-ins do). Avoid `%`: against the grid's auto-sized rows it resolves to `auto` and the cell collapses."
 
   attr :cell_overflow, :atom,
     values: [:clip, :visible],
     default: :clip,
     doc:
-      "`:clip` (default) keeps fixed-height cells `overflow-hidden`; `:visible` removes the clip so custom `:day_cell` content (hover tooltips, popovers) can escape the cell — independent of `expand_cells`, which always renders unclipped. With `:visible` and the default cell content, overflowing event chips spill instead of clipping."
+      "`:clip` (default) keeps fixed-height cells `overflow-hidden`; `:visible` removes the clip so custom `:day_cell` content (hover tooltips, popovers) can escape the cell — independent of `expand_cells`, which always renders unclipped. `:visible` cells get `hover:z-20 focus-within:z-20` so an escaping tooltip isn't painted over by the sibling cells after it; content shown on other triggers needs its own z-index. With `:visible` and the default cell content, overflowing event chips spill instead of clipping. Inside CalendarComponent this also trades away the view's scroll container (see the component doc) — in a bounded-height panel the grid then overflows the panel instead of scrolling."
 
   attr :respect_hours, :boolean,
     default: false,
@@ -699,12 +699,16 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   # responsive tier classes entirely; its dimension goes in via style.
   defp cell_size_classes(true, nil, _overflow), do: "min-h-20 @3xl:min-h-28 @5xl:min-h-32"
   defp cell_size_classes(true, _height, _overflow), do: nil
-  defp cell_size_classes(false, nil, :visible), do: "min-h-20 h-20 @3xl:h-28 @5xl:h-32"
+  # :visible cells lift above their siblings while hovered/focused — cells
+  # paint in DOM order, so without this a tooltip escaping a week-1 cell is
+  # painted over by the week-2 cells below it.
+  defp cell_size_classes(false, nil, :visible),
+    do: "min-h-20 h-20 @3xl:h-28 @5xl:h-32 hover:z-20 focus-within:z-20"
 
   defp cell_size_classes(false, nil, _clip),
     do: "min-h-20 h-20 @3xl:h-28 @5xl:h-32 overflow-hidden"
 
-  defp cell_size_classes(false, _height, :visible), do: nil
+  defp cell_size_classes(false, _height, :visible), do: "hover:z-20 focus-within:z-20"
   defp cell_size_classes(false, _height, _clip), do: "overflow-hidden"
 
   defp cell_size_style(_expand_cells, nil), do: nil

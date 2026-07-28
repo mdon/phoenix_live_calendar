@@ -248,14 +248,18 @@ defmodule PhoenixLiveCalendar.Components.Header do
   def view_value({:n_day, _}), do: "n_day"
   def view_value(v), do: to_string(v)
 
-  defp view_label(:month, t), do: I18n.label(:month, t)
-  defp view_label(:week, t), do: I18n.label(:week, t)
-  defp view_label(:day, t), do: I18n.label(:day, t)
-  defp view_label(:year, t), do: I18n.label(:year, t)
-  defp view_label(:agenda, t), do: I18n.label(:agenda, t)
-  defp view_label(:timeline, t), do: I18n.label(:timeline, t)
-  defp view_label({:n_day, n}, t), do: I18n.label(:n_day, t, %{count: n})
-  defp view_label(v, _t), do: to_string(v)
+  # Public (but undocumented) alongside view_value/1: the :header slot's
+  # view_options must label views by the same localized rule as the stock
+  # switcher.
+  @doc false
+  def view_label(:month, t), do: I18n.label(:month, t)
+  def view_label(:week, t), do: I18n.label(:week, t)
+  def view_label(:day, t), do: I18n.label(:day, t)
+  def view_label(:year, t), do: I18n.label(:year, t)
+  def view_label(:agenda, t), do: I18n.label(:agenda, t)
+  def view_label(:timeline, t), do: I18n.label(:timeline, t)
+  def view_label({:n_day, n}, t), do: I18n.label(:n_day, t, %{count: n})
+  def view_label(v, _t), do: to_string(v)
 
   defp nav_label(:prev, :month, t), do: I18n.label(:prev_month, t)
   defp nav_label(:next, :month, t), do: I18n.label(:next_month, t)

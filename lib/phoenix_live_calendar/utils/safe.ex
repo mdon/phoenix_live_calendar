@@ -86,7 +86,10 @@ defmodule PhoenixLiveCalendar.Utils.Safe do
   def sanitize_css_dimension(value, fallback \\ "3rem")
 
   def sanitize_css_dimension(value, fallback) when is_binary(value) do
-    if Regex.match?(~r/^\d+(\.\d+)?\s*(px|rem|em|vh|vw|%|ch|ex|vmin|vmax)$/, value) do
+    # Number and unit must be ADJACENT: "40 px" is invalid CSS, and letting
+    # it through both emits a dead declaration and (for cell_height) removes
+    # the tier classes the caller was promised as the fallback.
+    if Regex.match?(~r/^\d+(\.\d+)?(px|rem|em|vh|vw|%|ch|ex|vmin|vmax)$/, value) do
       value
     else
       Logger.warning(

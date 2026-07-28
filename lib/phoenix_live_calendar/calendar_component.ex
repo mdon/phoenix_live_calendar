@@ -61,19 +61,33 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   - `:day_header` / `:no_events` — agenda day headings and empty state
   - `:info` — toolbar info (ⓘ) disclosure content
   - `:header` — replaces the ENTIRE built-in toolbar with custom chrome.
-    Receives `%{title, view, date, views, today_visible, prev, next,
-    today, set_view, myself}` — `prev`/`next`/`today` are ready-made
-    `Phoenix.LiveView.JS` commands and `set_view` maps each view atom to
-    one (`set_view[:week]`), all pre-targeted at the component:
+    Receives `%{title, view, date, today_date, today_visible, on_prev,
+    on_next, on_today, view_options, myself}` — `on_prev`/`on_next`/
+    `on_today` are ready-made `Phoenix.LiveView.JS` commands pre-targeted
+    at the component, and `view_options` is an ordered list of
+    `%{view, label, active?, command}` descriptors (localized labels via
+    the component's `translations`), so a full switcher is one `:for`:
 
         <:header :let={h}>
-          <button phx-click={h.prev}>‹</button>
+          <button phx-click={h.on_prev}>‹</button>
           <span>{h.title}</span>
-          <button phx-click={h.next}>›</button>
+          <button phx-click={h.on_next}>›</button>
+          <button
+            :for={o <- h.view_options}
+            phx-click={o.command}
+            class={o.active? && "btn-active"}
+          >
+            {o.label}
+          </button>
         </:header>
 
     `show_header={false}` suppresses the slot too (one toggle for any
     chrome). `myself` is the component's CID for custom pushes.
+    Replacement is total: the `:toolbar_start`/`:toolbar_end`/`:info`
+    slots render inside the STOCK toolbar only, so fold that content into
+    your own chrome. The container's `rounded-lg` doesn't clip children —
+    give opaque chrome `rounded-t-[inherit]` (or transparent chrome like
+    the stock header) so it doesn't paint square over the top corners.
 
   ## Sizing
 
@@ -85,6 +99,13 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   does); inside a shrink-to-fit context (inline-block, float, flex row
   without a basis) a container-queried element cannot size itself by its
   content.
+
+  The view area scrolls its own overflow (`.cal-view-container` is
+  `overflow-auto`) — EXCEPT when the month view runs with
+  `cell_overflow: :visible`, which trades the scroll container away so
+  custom day-cell tooltips can escape the grid. In a bounded-height
+  panel the month grid then overflows the panel instead of scrolling;
+  keep `:clip` (the default) where scrolling matters.
   """
 
   use Phoenix.LiveComponent
@@ -252,11 +273,11 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
            targeted at this component, so slot content wires navigation
            without knowing the internal lc_* events. show_header={false}
            still suppresses ANY header, slot or built-in. --%>
-      <%= if assigns[:show_header] != false and assigns[:header] not in [nil, []] do %>
+      <%= if assigns[:show_header] != false and custom_header?(assigns) do %>
         {render_slot(assigns[:header], header_slot_arg(assigns))}
       <% end %>
       <Header.header
-        :if={assigns[:show_header] != false and assigns[:header] in [nil, []]}
+        :if={assigns[:show_header] != false and not custom_header?(assigns)}
         layout={assigns[:header_layout] || :auto}
         title={@title}
         view={@internal_view}
@@ -443,7 +464,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :max_multiday, :integer, default: nil
   attr :expand_cells, :boolean, default: false
   attr :cell_height, :string, default: nil
-  attr :cell_overflow, :atom, default: :clip
+  attr :cell_overflow, :atom, values: [:clip, :visible], default: :clip
   attr :respect_hours, :boolean, default: false
   attr :fixed_weeks, :boolean, default: true
   attr :show_week_numbers, :boolean, required: true
@@ -585,12 +606,16 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     """
   end
 
-  defp render_view(%{view: {:n_day, _}} = assigns) do
+  defp render_view(%{view: {:n_day, n}} = assigns) do
+    # The internal view tuple is authoritative — view={:n_day, 3} must render
+    # 3 days even when the separate n_days attr is unset (it defaults to 4).
+    assigns = assign(assigns, :n_day_count, n)
+
     ~H"""
     <NDayView.n_day_view
       id={@id && "#{@id}-nday"}
       date={@date}
-      days={@n_days}
+      days={@n_day_count}
       events={@events}
       selected_date={@selected_date}
       today={@today}
@@ -1087,8 +1112,23 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
 
   # The switcher sends "n_day" as a flat string (a tuple isn't attribute-safe);
   # the internal representation carries the day count, so rehydrate it here.
-  defp resolve_view(:n_day, assigns), do: {:n_day, assigns[:n_days] || 4}
+  # Count precedence: explicit n_days attr, then a {:n_day, n} entry in the
+  # views list (a consumer who writes views={[..., {:n_day, 3}]} has already
+  # said what n is), then 4.
+  defp resolve_view(:n_day, assigns) do
+    {:n_day, assigns[:n_days] || n_day_count_from_views(assigns[:views]) || 4}
+  end
+
   defp resolve_view(view, _assigns), do: view
+
+  defp n_day_count_from_views(views) when is_list(views) do
+    Enum.find_value(views, fn
+      {:n_day, n} when is_integer(n) -> n
+      _ -> nil
+    end)
+  end
+
+  defp n_day_count_from_views(_), do: nil
 
   # Safe direction parsing — only :prev and :next are valid
   defp safe_direction("prev"), do: :prev
@@ -1161,22 +1201,37 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   # targeted at this component. Slot content renders in the PARENT's scope
   # (plain phx-click there routes to the parent LiveView), so navigation
   # must ship as pre-targeted pushes rather than event-name strings.
+  defp custom_header?(assigns), do: assigns[:header] not in [nil, []]
+
+  # Commands are named on_* like the stock header's own attrs — `today` in
+  # this codebase always means a Date, so the Date is `today_date` and the
+  # command is `on_today`. Views come as ORDERED DESCRIPTORS (not a map):
+  # a complete custom switcher is one :for over view_options, with the
+  # stock switcher's localized labels and active flag included.
   defp header_slot_arg(assigns) do
     views = assigns[:views] || [:month, :week, :day]
+    translations = assigns[:translations] || %{}
     myself = assigns.myself
+    current = assigns.internal_view
 
     %{
       title: assigns.title,
-      view: assigns.internal_view,
+      view: current,
       date: assigns.internal_date,
-      views: views,
+      today_date: DateHelpers.resolve_today(assigns[:today]),
       today_visible: today_visible?(assigns),
-      prev: JS.push("lc_navigate", target: myself, value: %{direction: "prev"}),
-      next: JS.push("lc_navigate", target: myself, value: %{direction: "next"}),
-      today: JS.push("lc_today", target: myself),
-      set_view:
-        Map.new(views, fn view ->
-          {view, JS.push("lc_view_change", target: myself, value: %{view: Header.view_value(view)})}
+      on_prev: JS.push("lc_navigate", target: myself, value: %{direction: "prev"}),
+      on_next: JS.push("lc_navigate", target: myself, value: %{direction: "next"}),
+      on_today: JS.push("lc_today", target: myself),
+      view_options:
+        Enum.map(views, fn view ->
+          %{
+            view: view,
+            label: Header.view_label(view, translations),
+            active?: view == current,
+            command:
+              JS.push("lc_view_change", target: myself, value: %{view: Header.view_value(view)})
+          }
         end),
       myself: myself
     }

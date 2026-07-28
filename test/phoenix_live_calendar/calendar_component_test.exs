@@ -829,9 +829,10 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
 
           ~H|<div class="custom-chrome">
   {@h.title} ({@h.view})
-  <button phx-click={@h.prev}>‹</button><button phx-click={@h.set_view[:week]}>W</button><button phx-click={
-    @h.today
-  }>T</button>
+  <button phx-click={@h.on_prev}>‹</button><button phx-click={@h.on_today}>T</button>
+  <button :for={o <- @h.view_options} phx-click={o.command} data-active={to_string(o.active?)}>
+    {o.label}
+  </button>
 </div>|
         end
       }
@@ -847,22 +848,60 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert html =~ "lc_navigate"
       assert html =~ "lc_view_change"
       assert html =~ "lc_today"
+      # view_options carry the stock switcher's localized labels + active flag.
+      assert html =~ ~s(data-active="true">)
+      assert html =~ "Month"
+      assert html =~ ~s(data-active="false">)
+      assert html =~ "Week"
     end
 
-    test "the :header slot's set_view serializes an {:n_day, n} view flat (no crash)" do
+    test "the :header slot's view_options serialize an {:n_day, n} view flat (no crash)" do
       # The stock switcher flattens the tuple to "n_day"; the slot arg must
-      # build its commands by the same rule instead of to_string/1-crashing.
+      # build its commands by the same rule instead of to_string/1-crashing —
+      # and label the option like the stock switcher does.
       header_slot = %{
         __slot__: :header,
         inner_block: fn _index, h ->
           assigns = %{h: h}
-          ~H|<button phx-click={@h.set_view[{:n_day, 3}]}>3d</button>|
+          ~H|<button :for={o <- @h.view_options} phx-click={o.command}>{o.label}</button>|
         end
       }
 
       html = render_html(:month, %{views: [:month, {:n_day, 3}], header: [header_slot]})
 
       assert html =~ "n_day"
+      assert html =~ "3 Day"
+    end
+
+    test "switching to n_day picks the count up from the views list" do
+      # views={[{:n_day, 3}]} already says what n is — without an n_days attr
+      # the click must yield {:n_day, 3}, not the 4-day default (which also
+      # made a header-slot active? flag for the option impossible to hit).
+      socket =
+        mounted() |> update(%{view: :month, date: ~D[2026-06-01], views: [:month, {:n_day, 3}]})
+
+      {:noreply, socket} =
+        CalendarComponent.handle_event("lc_view_change", %{"view" => "n_day"}, socket)
+
+      assert socket.assigns.internal_view == {:n_day, 3}
+    end
+
+    test "the internal {:n_day, n} tuple drives how many days render" do
+      # view={:n_day, 3} with no n_days attr must render 3 day columns, not
+      # the n_days default of 4.
+      count_dates = fn html ->
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-date]")
+        |> Floki.attribute("data-date")
+        |> Enum.uniq()
+        |> length()
+      end
+
+      three = count_dates.(render_html({:n_day, 3}, %{date: ~D[2026-06-15]}))
+      four = count_dates.(render_html({:n_day, 4}, %{date: ~D[2026-06-15]}))
+
+      assert three == four - 1
     end
 
     test "show_header={false} suppresses the :header slot too" do
