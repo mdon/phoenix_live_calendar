@@ -241,9 +241,12 @@ defmodule PhoenixLiveCalendar.Components.Header do
 
   # The serialized value the switcher button sends. A `{:n_day, n}` view is
   # a tuple — not attribute-safe — so it flattens to "n_day" (the component's
-  # lc_view_change rehydrates the day count from its n_days attr).
-  defp view_value({:n_day, _}), do: "n_day"
-  defp view_value(v), do: to_string(v)
+  # lc_view_change rehydrates the day count from its n_days attr). Public
+  # (but undocumented) because CalendarComponent's :header slot arg must
+  # serialize views by the exact same rule.
+  @doc false
+  def view_value({:n_day, _}), do: "n_day"
+  def view_value(v), do: to_string(v)
 
   defp view_label(:month, t), do: I18n.label(:month, t)
   defp view_label(:week, t), do: I18n.label(:week, t)

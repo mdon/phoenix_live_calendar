@@ -448,6 +448,14 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
       assert html =~ ~s(phx-value-view="n_day")
       assert html =~ "3 Day"
     end
+
+    test "forwards cell_height and cell_overflow to the month grid" do
+      html = render_html(:month, %{cell_height: "2.5rem", cell_overflow: :visible})
+
+      assert html =~ "height: 2.5rem; min-height: 2.5rem"
+      refute html =~ "@5xl:h-32"
+      refute html =~ "min-h-20 h-20"
+    end
   end
 
   describe "show_today_button" do
@@ -798,6 +806,65 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
 
       assert html =~ "custom-toolbar-start"
       assert html =~ "custom-toolbar-end"
+    end
+
+    test "the :header slot replaces the built-in toolbar with custom chrome" do
+      header_slot = %{
+        __slot__: :header,
+        inner_block: fn _index, h ->
+          assigns = %{h: h}
+
+          ~H|<div class="custom-chrome">
+  {@h.title} ({@h.view})
+  <button phx-click={@h.prev}>‹</button><button phx-click={@h.set_view[:week]}>W</button><button phx-click={
+    @h.today
+  }>T</button>
+</div>|
+        end
+      }
+
+      html = render_html(:month, %{header: [header_slot]})
+
+      # Custom chrome in, stock toolbar out.
+      assert html =~ "custom-chrome"
+      refute html =~ "cal-header"
+      # State reaches the slot: formatted title + current view.
+      assert html =~ "June 2026 (month)"
+      # The ready-made JS commands wire the internal nav events.
+      assert html =~ "lc_navigate"
+      assert html =~ "lc_view_change"
+      assert html =~ "lc_today"
+    end
+
+    test "the :header slot's set_view serializes an {:n_day, n} view flat (no crash)" do
+      # The stock switcher flattens the tuple to "n_day"; the slot arg must
+      # build its commands by the same rule instead of to_string/1-crashing.
+      header_slot = %{
+        __slot__: :header,
+        inner_block: fn _index, h ->
+          assigns = %{h: h}
+          ~H|<button phx-click={@h.set_view[{:n_day, 3}]}>3d</button>|
+        end
+      }
+
+      html = render_html(:month, %{views: [:month, {:n_day, 3}], header: [header_slot]})
+
+      assert html =~ "n_day"
+    end
+
+    test "show_header={false} suppresses the :header slot too" do
+      header_slot = %{
+        __slot__: :header,
+        inner_block: fn _index, _h ->
+          assigns = %{}
+          ~H|<div class="custom-chrome">chrome</div>|
+        end
+      }
+
+      html = render_html(:month, %{header: [header_slot], show_header: false})
+
+      refute html =~ "custom-chrome"
+      refute html =~ "cal-header"
     end
 
     test "the :day_cell slot replaces month cells" do

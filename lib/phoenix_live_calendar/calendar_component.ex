@@ -60,6 +60,20 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   - `:resource_label` / `:resource_header` — timeline / resource column labels
   - `:day_header` / `:no_events` — agenda day headings and empty state
   - `:info` — toolbar info (ⓘ) disclosure content
+  - `:header` — replaces the ENTIRE built-in toolbar with custom chrome.
+    Receives `%{title, view, date, views, today_visible, prev, next,
+    today, set_view, myself}` — `prev`/`next`/`today` are ready-made
+    `Phoenix.LiveView.JS` commands and `set_view` maps each view atom to
+    one (`set_view[:week]`), all pre-targeted at the component:
+
+        <:header :let={h}>
+          <button phx-click={h.prev}>‹</button>
+          <span>{h.title}</span>
+          <button phx-click={h.next}>›</button>
+        </:header>
+
+    `show_header={false}` suppresses the slot too (one toggle for any
+    chrome). `myself` is the component's CID for custom pushes.
 
   ## Sizing
 
@@ -95,6 +109,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     end
   end
 
+  alias Phoenix.LiveView.JS
   alias PhoenixLiveCalendar.Event
   alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, Safe, Telemetry}
 
@@ -230,8 +245,18 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       dir={to_string(assigns[:dir] || :ltr)}
       phx-hook={if(assigns[:enable_hooks], do: "PhoenixLiveCalendarContainer")}
     >
+      <%!-- The :header slot replaces the built-in toolbar wholesale — custom
+           calendar chrome that the stock header's styling can't match. The
+           slot arg carries the state (title/view/date/views/today_visible)
+           plus ready-made JS commands (prev/next/today/set_view) already
+           targeted at this component, so slot content wires navigation
+           without knowing the internal lc_* events. show_header={false}
+           still suppresses ANY header, slot or built-in. --%>
+      <%= if assigns[:show_header] != false and assigns[:header] not in [nil, []] do %>
+        {render_slot(assigns[:header], header_slot_arg(assigns))}
+      <% end %>
       <Header.header
-        :if={assigns[:show_header] != false}
+        :if={assigns[:show_header] != false and assigns[:header] in [nil, []]}
         layout={assigns[:header_layout] || :auto}
         title={@title}
         view={@internal_view}
@@ -342,6 +367,8 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           show_weekends={assigns[:show_weekends] != false}
           fixed_weeks={assigns[:fixed_weeks] != false}
           expand_cells={assigns[:expand_cells] || false}
+          cell_height={assigns[:cell_height]}
+          cell_overflow={assigns[:cell_overflow] || :clip}
           respect_hours={assigns[:respect_hours] || false}
           show_now_indicator={assigns[:show_now_indicator] != false}
           show_all_day_row={assigns[:show_all_day_row] != false}
@@ -410,6 +437,8 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :max_events, :integer, required: true
   attr :max_multiday, :integer, default: nil
   attr :expand_cells, :boolean, default: false
+  attr :cell_height, :string, default: nil
+  attr :cell_overflow, :atom, default: :clip
   attr :respect_hours, :boolean, default: false
   attr :fixed_weeks, :boolean, default: true
   attr :show_week_numbers, :boolean, required: true
@@ -466,6 +495,8 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       id={@id && "#{@id}-month"}
       max_multiday={@max_multiday}
       expand_cells={@expand_cells}
+      cell_height={@cell_height}
+      cell_overflow={@cell_overflow}
       respect_hours={@respect_hours}
       marker_ticker={@marker_ticker}
       marker_ticker_interval={@marker_ticker_interval}
@@ -1119,6 +1150,31 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           "[PhoenixLiveCalendar] Expected function for #{callback_key}, got: #{inspect(other)}"
         )
     end
+  end
+
+  # The :header slot's arg — current nav state plus ready-made JS commands
+  # targeted at this component. Slot content renders in the PARENT's scope
+  # (plain phx-click there routes to the parent LiveView), so navigation
+  # must ship as pre-targeted pushes rather than event-name strings.
+  defp header_slot_arg(assigns) do
+    views = assigns[:views] || [:month, :week, :day]
+    myself = assigns.myself
+
+    %{
+      title: assigns.title,
+      view: assigns.internal_view,
+      date: assigns.internal_date,
+      views: views,
+      today_visible: today_visible?(assigns),
+      prev: JS.push("lc_navigate", target: myself, value: %{direction: "prev"}),
+      next: JS.push("lc_navigate", target: myself, value: %{direction: "next"}),
+      today: JS.push("lc_today", target: myself),
+      set_view:
+        Map.new(views, fn view ->
+          {view, JS.push("lc_view_change", target: myself, value: %{view: Header.view_value(view)})}
+        end),
+      myself: myself
+    }
   end
 
   # Whether the view container is the container's FIRST visible child (no

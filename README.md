@@ -25,7 +25,8 @@ richer interaction; never depend on them for the page to look right.
 - **Widgets**: `Widgets.next_events/week_strip/activity_grid/mini_timeline` + `MiniCalendar` — the most compressed useful form of each surface for ~200×150px dashboard cells
 - **Layers**: named event sets with a legend of toggle chips, filtered server-side — withheld layers never reach the client
 - **Semantic color tokens**: `Event.color` takes `:primary`-style atoms or app-configured tokens as well as raw classes
-- **Customization slots** forwarded through the `CalendarComponent` (`:event`, `:day_cell`, `:time_label`, …)
+- **Customization slots** forwarded through the `CalendarComponent` (`:event`, `:day_cell`, `:time_label`, …) — including a `:header` slot that replaces the whole toolbar with your own chrome (nav commands handed to the slot pre-wired)
+- **Dense custom grids**: `cell_height` overrides the month cell height (40px heatmap rows, big planner cells) and `cell_overflow: :visible` lets custom day-cell tooltips/popovers escape the cell
 - **Range-driven windowing**: `events_mode: :window` renders only the visible slice — pair with `on_date_range_change`
 - **Progressive enhancement**: Optional JS hooks for drag-to-select, drag-to-move, resize
 - **Real-time sync**: Optional PubSub integration for multi-user calendars

@@ -507,6 +507,8 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 | `layers` / `show_legend` | `[]` / `true` | Layer structs -> legend toggle chips; hidden layers filtered server-side |
 | `header_layout` | `:auto` | Toolbar collapses to a start row when both wings are empty; `:centered`/`:start` force |
 | `event_content` | `:auto` | Week/day/resource block content tier by estimated height (`:detail`/`:inline`/`:title`/`:none` force) |
+| `cell_height` | `nil` | Month view: CSS height (e.g. `"2.5rem"`) replacing the built-in responsive cell-height tiers; `height` in fixed mode, `min-height` floor with `expand_cells`. Invalid values fall back to the tiers (not a substitute size) |
+| `cell_overflow` | `:clip` | Month view: `:visible` drops `overflow-hidden` from fixed-height cells so custom `:day_cell` tooltips/popovers can escape; independent of `expand_cells` |
 | `min_event_height` | `"1.25rem"` | Height floor for week/day/resource blocks (`"0"` disables) |
 | `label_position` (+`label_fit_ratio`, `label_fit_fallback`) | `:fit` | Timeline bar labels: inside when the estimate fits, else outside/suppressed |
 | `show_time_axis` | `true` | Timeline hour header |
@@ -515,7 +517,13 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 Slot forwarding: the views' customization slots (`:event`, `:day_cell`,
 `:time_label`, `:resource_label`, `:resource_header`, `:day_header`,
 `:no_events`) pass through `<.live_component>` children into every view
-that supports them; `:info` feeds the toolbar's ⓘ disclosure.
+that supports them; `:info` feeds the toolbar's ⓘ disclosure. The
+`:header` slot replaces the ENTIRE built-in toolbar with custom chrome —
+its arg carries `%{title, view, date, views, today_visible, prev, next,
+today, set_view, myself}` where `prev`/`next`/`today` are ready-made JS
+pushes and `set_view` maps each configured view to one (views serialize
+via `Header.view_value/1` — `{:n_day, n}` flattens to `"n_day"`);
+`show_header={false}` suppresses the slot too.
 
 ### View/date sync (controlled vs uncontrolled)
 

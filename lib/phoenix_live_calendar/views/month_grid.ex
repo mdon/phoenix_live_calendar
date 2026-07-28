@@ -18,7 +18,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
 
   alias PhoenixLiveCalendar.Components.EventItem
   alias PhoenixLiveCalendar.Event
-  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, Telemetry}
+  alias PhoenixLiveCalendar.Utils.{DateHelpers, I18n, Safe, Telemetry}
 
   @doc """
   Renders a month grid — six rows of seven days.
@@ -39,6 +39,8 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   - `max_events` — single-day events shown per cell before a "+N more" link (default `3`)
   - `max_multiday` — cap on multi-day bar rows per cell (default: no cap)
   - `expand_cells` — grow cells to fit all bars instead of clipping
+  - `cell_height` — CSS height for day cells, replacing the built-in responsive tiers
+  - `cell_overflow` — `:clip` (default) or `:visible` to let custom day-cell content overflow
   - `respect_hours` — position timed events by the hours they occupy (1h min width) instead of full-day
   - `show_week_numbers` / `show_weekends` / `fixed_weeks` — layout toggles
   - `on_date_click` / `on_event_click` / `on_more_click` — JS commands or event names
@@ -69,6 +71,17 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     default: false,
     doc:
       "When true, day cells grow vertically to fit all their bars (min-height, no clipping) instead of a fixed height that clips overflow. Useful when every event must stay visible (e.g. project bars)."
+
+  attr :cell_height, :string,
+    default: nil,
+    doc:
+      "CSS height for day cells (e.g. \"2.5rem\", \"40px\"), replacing the built-in responsive height tiers — dense custom grids (heatmaps, dashboards) usually pair it with a `:day_cell` slot. Fixed mode applies it as `height`; with `expand_cells` it becomes the `min-height` floor instead. `nil` (default) keeps the built-in tiers; invalid values fall back to them."
+
+  attr :cell_overflow, :atom,
+    values: [:clip, :visible],
+    default: :clip,
+    doc:
+      "`:clip` (default) keeps fixed-height cells `overflow-hidden`; `:visible` removes the clip so custom `:day_cell` content (hover tooltips, popovers) can escape the cell — independent of `expand_cells`, which always renders unclipped. With `:visible` and the default cell content, overflowing event chips spill instead of clipping."
 
   attr :respect_hours, :boolean,
     default: false,
@@ -156,6 +169,7 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
     assigns =
       assigns
       |> assign(:today, today)
+      |> assign(:cell_height, sanitize_cell_height(assigns.cell_height))
       |> assign(:weeks, Enum.zip(weeks, week_slots))
       |> assign(:days_per_week, days_per_week)
       |> assign(:events_by_date, events_by_date)
@@ -209,12 +223,10 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
           :for={day <- week}
           class={[
             "cal-day-cell min-w-0 border-e border-base-content/5 relative",
-            if(@expand_cells,
-              do: "min-h-20 @3xl:min-h-28 @5xl:min-h-32",
-              else: "min-h-20 h-20 @3xl:h-28 @5xl:h-32 overflow-hidden"
-            ),
+            cell_size_classes(@expand_cells, @cell_height, @cell_overflow),
             cell_classes(day, @date, @today, @selected_date, Map.get(@markers_by_date, day, []))
           ]}
+          style={cell_size_style(@expand_cells, @cell_height)}
           role="gridcell"
           aria-selected={to_string(day == @selected_date)}
           aria-current={if(day == @today, do: "date")}
@@ -669,6 +681,35 @@ defmodule PhoenixLiveCalendar.Views.MonthGrid do
   end
 
   # -- Private helpers --
+
+  # Invalid dimensions fall back to the built-in tiers (nil), not to a
+  # substitute height — the sanitizer's own fallback would silently install
+  # a size nobody asked for.
+  defp sanitize_cell_height(nil), do: nil
+
+  defp sanitize_cell_height(value) do
+    case Safe.sanitize_css_dimension(value, "") do
+      "" -> nil
+      height -> height
+    end
+  end
+
+  # Cell height/overflow classes — complete static strings (Tailwind purges
+  # dynamically assembled class names). A custom cell_height replaces the
+  # responsive tier classes entirely; its dimension goes in via style.
+  defp cell_size_classes(true, nil, _overflow), do: "min-h-20 @3xl:min-h-28 @5xl:min-h-32"
+  defp cell_size_classes(true, _height, _overflow), do: nil
+  defp cell_size_classes(false, nil, :visible), do: "min-h-20 h-20 @3xl:h-28 @5xl:h-32"
+
+  defp cell_size_classes(false, nil, _clip),
+    do: "min-h-20 h-20 @3xl:h-28 @5xl:h-32 overflow-hidden"
+
+  defp cell_size_classes(false, _height, :visible), do: nil
+  defp cell_size_classes(false, _height, _clip), do: "overflow-hidden"
+
+  defp cell_size_style(_expand_cells, nil), do: nil
+  defp cell_size_style(true, height), do: "min-height: #{height}"
+  defp cell_size_style(false, height), do: "height: #{height}; min-height: #{height}"
 
   # A marker's own `color` owns the cell background: it replaces the
   # weekend/out-of-month tint AND the type-based marker tint (stacking two

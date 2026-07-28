@@ -560,6 +560,62 @@ defmodule PhoenixLiveCalendar.Views.MonthGridTest do
     end
   end
 
+  describe "cell sizing" do
+    test "cell_height replaces the height tiers with a fixed CSS height (still clipped)" do
+      assigns = %{date: ~D[2026-04-01]}
+      html = render(~H|<.month_grid date={@date} cell_height="2.5rem" />|)
+
+      assert html =~ "height: 2.5rem; min-height: 2.5rem"
+      refute html =~ "@5xl:h-32"
+      assert day_cell_class(html, "2026-04-01") =~ "overflow-hidden"
+    end
+
+    test "cell_height with expand_cells becomes the min-height floor" do
+      assigns = %{date: ~D[2026-04-01]}
+      html = render(~H|<.month_grid date={@date} cell_height="2.5rem" expand_cells={true} />|)
+
+      assert html =~ "min-height: 2.5rem"
+      refute html =~ "height: 2.5rem; min-height"
+      refute html =~ "@5xl:min-h-32"
+    end
+
+    test "cell_overflow: :visible removes the clip, keeps the height tiers" do
+      assigns = %{date: ~D[2026-04-01]}
+      html = render(~H|<.month_grid date={@date} cell_overflow={:visible} />|)
+      cell = day_cell_class(html, "2026-04-01")
+
+      assert cell =~ "@5xl:h-32"
+      refute cell =~ "overflow-hidden"
+    end
+
+    test "cell_height + cell_overflow: :visible — dense unclipped cells" do
+      assigns = %{date: ~D[2026-04-01]}
+
+      html =
+        render(~H|<.month_grid date={@date} cell_height="40px" cell_overflow={:visible} />|)
+
+      cell = day_cell_class(html, "2026-04-01")
+
+      assert html =~ "height: 40px; min-height: 40px"
+      refute cell =~ "overflow-hidden"
+      refute cell =~ "h-20"
+    end
+
+    test "an invalid cell_height falls back to the built-in tiers, not a substitute size" do
+      assigns = %{date: ~D[2026-04-01]}
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          html = render(~H|<.month_grid date={@date} cell_height="calc(100vh - 2rem)" />|)
+
+          assert day_cell_class(html, "2026-04-01") =~ "@5xl:h-32"
+          refute html =~ "min-height:"
+        end)
+
+      assert log =~ "Invalid CSS dimension"
+    end
+  end
+
   describe "respect_hours" do
     # 10th 14:00 -> 12th 10:00 timed bar
     defp hours_event do
