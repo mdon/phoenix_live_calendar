@@ -74,12 +74,22 @@ Without this, the following features will not work:
 
 ### Compile-time install check
 
-If the consumer hasn't run `mix phoenix_live_calendar.install`, a compile-time warning is emitted:
+`calendar_component.ex` asks `PhoenixLiveCalendar.install_status/1` at compile time and warns only on `:missing`:
 
 ```
 warning: PhoenixLiveCalendar CSS integration not detected.
 Run: mix phoenix_live_calendar.install
 ```
+
+| Status | Means | Warns |
+|---|---|---|
+| `:installed` | a host stylesheet or Tailwind config names the package, or `@source`s the whole `deps` directory | no |
+| `:missing` | host stylesheets exist and none names it | **yes** |
+| `:unknown` | no stylesheet found, or the `@source` list is generated (`_phoenix_kit_sources.css`) and not written yet | no |
+
+The lookup is anchored on the **host's** root, never the working directory: Mix compiles a dependency from inside the dependency's own directory, so a cwd-relative path reads `deps/phoenix_live_calendar/assets/…` and matches nothing. `host_roots/0` reads the root off the two absolute paths the host hands down in `Mix.Project.config()` — `:lockfile` and `:deps_path` — and checks both directories (they differ only under a custom `:deps_path`).
+
+The unit tests cover `install_status/1` and `host_roots/1` on fixtures. They cannot cover the dependency-compile path itself; verify that in a throwaway host with `{:phoenix_live_calendar, path: …}` and `mix deps.compile phoenix_live_calendar --force`.
 
 Suppress with: `config :phoenix_live_calendar, skip_install_check: true`
 
@@ -104,7 +114,7 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 
 ## Current Status
 
-**All layers implemented. ~622 tests passing. Zero warnings. Zero credo strict issues. Dialyzer clean.** (Counts drift — trust `mix test` output over this line.)
+**All layers implemented. ~637 tests passing. Zero warnings. Zero credo strict issues. Dialyzer clean.** (Counts drift — trust `mix test` output over this line.)
 
 - ~40 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), ~37 test files
 - Layer 0 (Pure Elixir views): Complete — all 8 views
@@ -138,7 +148,7 @@ phoenix_live_calendar/
     config.exs                          # skip_install_check: true for self-compilation
 
   lib/
-    phoenix_live_calendar.ex                    # Main module — public API, installed?/0 check
+    phoenix_live_calendar.ex                    # Main module — public API, install_status/1 check
     mix/
       tasks/
         phoenix_live_calendar.install.ex        # Mix task — adds @source to consumer's app.css
@@ -667,7 +677,7 @@ App JS setup: `app/assets/js/app.js` imports `phoenix_live_calendar.js` at `../.
 
 13. **`@source` in parent app** — The `@source "../../deps/phoenix_live_calendar"` directive in `/www/app/assets/css/app.css` was manually added during development. If the app's CSS is regenerated or the install is re-run, this line exists. The `mix phoenix_live_calendar.install` task handles new installs, but existing manual entries should be preserved.
 
-14. **Compile-time install check** — The warning in `calendar_component.ex` uses `IO.warn` at compile time, which fires during `mix compile` of ANY project that depends on phoenix_live_calendar. The package itself suppresses it via `config :phoenix_live_calendar, skip_install_check: true` in `config/config.exs`. Consumer projects that haven't run `mix phoenix_live_calendar.install` will see the warning on every compile until they install or suppress.
+14. **Compile-time install check** — runs when the package compiles, which in a consumer is once per dependency build, from inside `deps/phoenix_live_calendar/` and usually before the host's own compile. Three consequences: paths must be anchored on the host root (see "Compile-time install check" above), a file the host generates during its own compile is not there yet, and a Docker layer that compiles deps before copying `assets/` has no stylesheet at all. That is why the check warns only on `:missing` and treats everything it cannot see as `:unknown`. The package itself suppresses it via `config :phoenix_live_calendar, skip_install_check: true` in `config/config.exs`.
 
 15. **Dark mode theme contrast** — The `phoenix-dark` daisyUI theme has only 3.65% lightness spread between base-100/200/300. Using `border-base-200` or `border-base-300` is nearly invisible. Always use `border-base-content/N` for borders.
 
@@ -678,7 +688,7 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`.
 
 ## Testing
 
-- **622 tests, 0 failures** (counts drift — trust `mix test`)
+- **637 tests, 0 failures** (counts drift — trust `mix test`)
 - Unit tests for all structs, utilities, constraints
 - Component rendering tests for all views and primitives (using `rendered_to_string`)
 - CalendarComponent: mount/update sync, every `handle_event/3` clause + callback, and `render/1` per view — driven directly (no endpoint needed)

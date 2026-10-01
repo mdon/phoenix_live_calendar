@@ -74,26 +74,124 @@ defmodule PhoenixLiveCalendar do
 
   alias PhoenixLiveCalendar.{Availability, BookingConfig, DayMarker, Event, Resource}
 
+  # Mix is a build-time tool, not a runtime dependency of this package.
+  @compile {:no_warn_undefined, Mix.Project}
+
+  # Files that can carry the Tailwind wiring, relative to a host project
+  # root (`apps/*` covers an umbrella, whose assets live in a child app).
+  @install_globs [
+    "assets/css/**/*.css",
+    "assets/*.css",
+    "assets/tailwind.config.*",
+    "tailwind.config.*",
+    "apps/*/assets/css/**/*.css",
+    "apps/*/assets/tailwind.config.*"
+  ]
+
+  # Hand-written stylesheets and configs are a few KB. Anything past this is
+  # build output that landed in a source directory, and says nothing.
+  @max_install_file_bytes 1_000_000
+
+  # A stylesheet importing this file hands its `@source` list to PhoenixKit,
+  # which regenerates it when the HOST compiles — after its dependencies.
+  @generated_sources "_phoenix_kit_sources.css"
+
+  # `@source "../../deps";` scans every dependency, this one included.
+  @whole_deps_source ~r/@source\s+["'][^"']*\bdeps\/?["']/
+
   @doc """
   Returns whether PhoenixLiveCalendar CSS integration has been wired up.
 
-  Looks for the package name in the common `app.css` locations **and** in any
-  `assets/css/*.css` — so it also recognises a generated Tailwind sources file
-  (e.g. PhoenixKit's `_phoenix_kit_sources.css`, which `@source`s the package
-  automatically). Used at compile time to warn developers who haven't run
-  `mix phoenix_live_calendar.install` and aren't wiring it some other way.
+  `true` only when `install_status/1` is `:installed`.
   """
   @spec installed?() :: boolean()
-  def installed? do
-    (["assets/css/app.css", "priv/static/assets/app.css", "assets/app.css"] ++
-       Path.wildcard("assets/css/*.css"))
-    |> Enum.uniq()
-    |> Enum.any?(fn path ->
-      case File.read(path) do
-        {:ok, content} -> String.contains?(content, "phoenix_live_calendar")
-        _ -> false
+  def installed?, do: install_status() == :installed
+
+  @doc """
+  Reports whether the host project's Tailwind setup scans this package.
+
+    * `:installed` — a host stylesheet or Tailwind config names the package
+      (an `@source` line, a `content` glob, or a generated sources file such
+      as PhoenixKit's `_phoenix_kit_sources.css`), or `@source`s the whole
+      `deps` directory
+    * `:missing` — host stylesheets were found and none of them names it
+    * `:unknown` — nothing to judge by: no stylesheet at the usual locations
+      (a Docker layer that compiles deps before copying `assets/`, a custom
+      layout), or the sources list is generated and not written yet
+
+  Used at compile time to warn developers who haven't run
+  `mix phoenix_live_calendar.install` and aren't wiring it some other way.
+  Only `:missing` warns — it is the one answer backed by evidence.
+
+  `roots` is the host project's root, or a list of candidates. It defaults
+  to `host_roots/0`, never the working directory: Mix compiles a dependency
+  from inside the dependency's own directory.
+  """
+  @spec install_status(Path.t() | [Path.t()]) :: :installed | :missing | :unknown
+  def install_status(roots \\ host_roots()) do
+    contents =
+      for(
+        root <- List.wrap(roots),
+        glob <- @install_globs,
+        path <- Path.wildcard(Path.join(root, glob)),
+        uniq: true,
+        do: path
+      )
+      |> Enum.flat_map(&read_install_file/1)
+
+    cond do
+      Enum.any?(contents, &scans_package?/1) -> :installed
+      contents == [] -> :unknown
+      Enum.any?(contents, &String.contains?(&1, @generated_sources)) -> :unknown
+      true -> :missing
+    end
+  end
+
+  defp scans_package?(content) do
+    String.contains?(content, "phoenix_live_calendar") or
+      Regex.match?(@whole_deps_source, content)
+  end
+
+  defp read_install_file(path) do
+    with {:ok, %File.Stat{type: :regular, size: size}} when size <= @max_install_file_bytes <-
+           File.stat(path),
+         {:ok, content} <- File.read(path) do
+      [content]
+    else
+      _ -> []
+    end
+  end
+
+  @doc false
+  # The directories that can be the host project's root, read off the Mix
+  # config the HOST hands down while it compiles this package as a
+  # dependency: the one holding its lockfile and the one holding its `deps/`
+  # (they differ only under a custom `:deps_path`). Outside a Mix build — a
+  # release, an escript — there is no host to ask, so the cwd stands in.
+  @spec host_roots() :: [Path.t()]
+  def host_roots do
+    if Code.ensure_loaded?(Mix.Project) do
+      host_roots(Mix.Project.config())
+    else
+      host_roots([])
+    end
+  catch
+    # Mix's modules can be loadable without the :mix application running.
+    _kind, _reason -> host_roots([])
+  end
+
+  @doc false
+  @spec host_roots(keyword()) :: [Path.t()]
+  def host_roots(mix_config) do
+    roots =
+      for key <- [:lockfile, :deps_path], path = mix_config[key], is_binary(path), uniq: true do
+        path |> Path.expand() |> Path.dirname()
       end
-    end)
+
+    case {roots, File.cwd()} do
+      {[], {:ok, cwd}} -> [cwd]
+      {roots, _} -> roots
+    end
   end
 
   @doc """

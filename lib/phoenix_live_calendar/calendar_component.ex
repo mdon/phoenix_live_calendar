@@ -112,21 +112,26 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
 
   require Logger
 
-  # Compile-time check: warn if CSS integration hasn't been installed
+  # Compile-time check: warn when the host's stylesheets are there and none of
+  # them scans this package. Anything short of that evidence stays silent.
   unless Application.compile_env(:phoenix_live_calendar, :skip_install_check, false) do
-    unless PhoenixLiveCalendar.installed?() do
-      IO.warn("""
-      PhoenixLiveCalendar CSS integration not detected.
+    if PhoenixLiveCalendar.install_status() == :missing do
+      # No stacktrace: the cause is in the host's CSS, not at this line.
+      IO.warn(
+        """
+        PhoenixLiveCalendar CSS integration not detected.
 
-      Tailwind will not scan PhoenixLiveCalendar's component templates, so styles
-      (including rounded corners, colors, and layout) will be missing.
+        Tailwind will not scan PhoenixLiveCalendar's component templates, so styles
+        (including rounded corners, colors, and layout) will be missing.
 
-      Run:  mix phoenix_live_calendar.install
+        Run:  mix phoenix_live_calendar.install
 
-      To suppress this warning, add to your config:
+        To suppress this warning, add to your config:
 
-          config :phoenix_live_calendar, skip_install_check: true
-      """)
+            config :phoenix_live_calendar, skip_install_check: true
+        """,
+        []
+      )
     end
   end
 
